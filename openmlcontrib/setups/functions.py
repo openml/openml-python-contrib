@@ -4,7 +4,7 @@ import json
 
 def filter_setup_list(setupid_setup, param_name, min=None, max=None, allowed_values=None):
     """
-    Removed setups from a dict of setups if the parameter value
+    Removes setups from a dict of setups if the parameter value
     does not comply with a given value. Important: Use with
     caution, as it does not handle duplicate names for various
     modules well. Will be updated in a non-backward compatible 
