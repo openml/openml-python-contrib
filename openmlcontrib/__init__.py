@@ -1,3 +1,5 @@
-from .setups.functions import filter_setup_list
+from . import misc
+from . import setups
+
 
 __version__ = "0.0.1"

@@ -1,13 +1,13 @@
 
-def filter_listing(list, property_name, allowed_values=None):
+def filter_listing(listing, property_name, allowed_values=None):
     """
     Removes items from the result of a listing fn if a property
     does not comply with a given value. 
 
      Parameters
         ----------
-        setupid_setup : dict of [OpenMLRun, OpenMLDataset, OpenMLFlow, 
-            OpenMLTask] as obtained from the openml listing fn
+        setupid_setup : dict of dicts, representing openml objects
+            as obtained from an openml listing fn 
 
         property_name : str
             the name of the property which values should be restricted
@@ -17,18 +17,18 @@ def filter_listing(list, property_name, allowed_values=None):
 
         Returns
         -------
-        model : dict of OpenML objects
+        model : dict of dicts
             a dict, with the objects that did not comply removed 
     """
     allowed = dict()
     if not isinstance(allowed_values, list):
         raise ValueError('allowed values should be a list')
 
-    for id, object in list.items():
-        if not hasattr(object, property_name):
-            raise ValueError('OpenML object does not have property: %d' %property_name)
+    for id, object in listing.items():
+        if property_name not in object:
+            raise ValueError('dict does not have property: %s' %property_name)
 
-        if object.property_name in allowed_values:
+        if object[property_name] in allowed_values:
             allowed[id] = object
 
     return allowed
