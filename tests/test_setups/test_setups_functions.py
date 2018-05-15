@@ -41,3 +41,20 @@ class TestSetupFunctions(unittest.TestCase):
 
         poly_setups_prime = openmlcontrib.setups.filter_setup_list(poly_setups, 'kernel', allowed_values='poly')
         self.assertEquals(poly_ids, set(poly_setups_prime.keys()))
+
+    def test_filter_setup_list_nominal(self):
+        openml.config.server = self.live_server
+        setupid_setup = openml.setups.list_setups(flow=7707, size=100)  # pipeline with libsvm svc
+        threshold = 3
+        poly_setups = openmlcontrib.setups.filter_setup_list(setupid_setup, 'kernel', allowed_values='poly')
+
+        poly_setups_smaller = openmlcontrib.setups.filter_setup_list(setupid_setup, 'degree', max=threshold)
+        poly_setups_bigger = openmlcontrib.setups.filter_setup_list(setupid_setup, 'degree', min=threshold+1)
+
+        smaller_ids = set(poly_setups_smaller.keys())
+        bigger_ids = set(poly_setups_bigger.keys())
+        all_ids = set(poly_setups.keys())
+        inters = smaller_ids.intersection(bigger_ids)
+
+        self.assertEquals(len(inters), 0)
+        self.assertEquals(len(smaller_ids) + len(bigger_ids), len(all_ids))
