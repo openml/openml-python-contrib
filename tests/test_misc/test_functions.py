@@ -30,7 +30,6 @@ class TestMiscFunctions(unittest.TestCase):
         task_id = next(iter(task_list_prime))
         self.assertEqual(task_list_prime[task_id][prop], value)
 
-
     def test_filter_task_listing_illeg(self):
         prop = 'doesntexist'
         value = 1
