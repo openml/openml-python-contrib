@@ -77,7 +77,8 @@ def obtain_setups_by_ids(setup_ids, require_all=True, limit=250):
         be complete (and an error is thrown if not)
 
     limit : int
-        The number of setups to obtain (lower this to avoid long URLs)
+        The number of setups to obtain per call
+        (lower numbers avoid long URLs, but take longer)
 
     Returns
     -------
