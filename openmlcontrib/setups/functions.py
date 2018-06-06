@@ -1,4 +1,5 @@
 import collections
+import ConfigSpace
 import copy
 import json
 import openml
@@ -106,3 +107,40 @@ def obtain_setups_by_ids(setup_ids, require_all=True, limit=250):
             raise ValueError('Did not get all setup ids. Missing: %s' % missing)
 
     return setups
+
+
+def setup_to_configuration(setup, config_space):
+    """
+    Turns an OpenML setup object into a Configuration object.
+    Throws an error if not possible
+
+    Parameters
+    ----------
+    setup : OpenMLSetup
+        the setup object
+
+    config_space : ConfigurationSpace
+        The configuration space
+
+    Returns
+    -------
+    The Configuration object
+    """
+    name_values = dict()
+    name_inputid = {param.parameter_name: id for id, param in setup.parameters.items()}
+    for hyperparameter in config_space.get_hyperparameters():
+        name = hyperparameter.name
+        if name not in name_inputid.keys():
+            raise ValueError('Setup does not contain parameter: %s' % hyperparameter.name)
+        value = setup.parameters[name_inputid[hyperparameter.name]].value
+        if isinstance(hyperparameter, ConfigSpace.hyperparameters.UniformIntegerHyperparameter):
+            name_values[name] = int(value)
+        elif isinstance(hyperparameter, ConfigSpace.hyperparameters.NumericalHyperparameter):
+            name_values[name] = float(value)
+        else:
+            val = json.loads(value)
+            if isinstance(val, bool):
+                val = str(val)
+            name_values[name] = val
+
+    return ConfigSpace.Configuration(config_space, name_values)
