@@ -81,6 +81,43 @@ class TestSetupFunctions(unittest.TestCase):
             openmlcontrib.setups.setup_to_configuration(setup, cs)
             self.assertTrue(openmlcontrib.setups.setup_in_config_space(setup, cs))
 
+
+    def filter_setups_by_config_space(self):
+        C = ConfigSpace.UniformFloatHyperparameter("C", 0.03125, 32768, log=True, default_value=1.0)
+        kernel = ConfigSpace.CategoricalHyperparameter(name="kernel",
+                                                       choices=["rbf", "poly", "sigmoid"], default_value="rbf")
+        degree = ConfigSpace.UniformIntegerHyperparameter("degree", 1, 5, default_value=3)
+        gamma = ConfigSpace.UniformFloatHyperparameter("gamma", 3.0517578125e-05, 8, log=True,
+                                                       default_value=0.1)
+        coef0 = ConfigSpace.UniformFloatHyperparameter("coef0", -1, 1, default_value=0)
+
+        cs = ConfigSpace.ConfigurationSpace()
+        cs.add_hyperparameters([C, kernel, degree, gamma, coef0])
+
+        setups = {}
+        for setup_file in os.listdir('../data/setups'):
+            with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
+                setup = pickle.load(fp)
+            setups[setup.id] = setup
+        self.assertEquals(len(setups), 20)
+        setups_filtered = openmlcontrib.setups.filter_setup_list(setups, cs)
+        self.assertEquals(len(setups), len(setups_filtered))
+
+    def filter_setups_by_config_space_fails(self):
+        degree = ConfigSpace.UniformIntegerHyperparameter("degree", -5, -1, default_value=-3)
+
+        cs = ConfigSpace.ConfigurationSpace()
+        cs.add_hyperparameters([degree])
+
+        setups = {}
+        for setup_file in os.listdir('../data/setups'):
+            with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
+                setup = pickle.load(fp)
+            setups[setup.id] = setup
+        self.assertEquals(len(setups), 20)
+        setups_filtered = openmlcontrib.setups.filter_setup_list(setups, cs)
+        self.assertEquals(len(setups_filtered), 0)
+
     def test_setup_to_configuration_raises_illegal_value(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("degree", -5, -1, default_value=-3)
         cs = ConfigSpace.ConfigurationSpace()

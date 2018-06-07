@@ -167,3 +167,26 @@ def setup_in_config_space(setup, config_space):
         return True
     except ValueError:
         return False
+
+
+def filter_setups_by_config_space(setups, config_space):
+    """
+    Removes all setups that do not comply to the config space
+
+    Parameters
+    ----------
+    setup : OpenMLSetup
+        the setup object
+
+    config_space : ConfigurationSpace
+        The configuration space
+
+    Returns
+    -------
+    A dict mapping from setup id to setup, all complying to the config space
+    """
+    setups_remain = {}
+    for sid, setup in setups():
+        if setup_in_config_space(setup, config_space):
+            setups_remain[sid] = setup
+    return setups_remain
