@@ -131,8 +131,10 @@ def setup_to_configuration(setup, config_space):
     for hyperparameter in config_space.get_hyperparameters():
         name = hyperparameter.name
         if name not in name_inputid.keys():
-            raise ValueError('Setup does not contain parameter: %s' % hyperparameter.name)
+            raise KeyError('Setup does not contain parameter: %s' % hyperparameter.name)
         value = setup.parameters[name_inputid[hyperparameter.name]].value
+        # TODO: take into account hyperparameter conditionals. i.e.,
+        # the libsvm_svc degree is only relevant when the poly kernel is selected
         if isinstance(hyperparameter, ConfigSpace.hyperparameters.UniformIntegerHyperparameter):
             name_values[name] = int(value)
         elif isinstance(hyperparameter, ConfigSpace.hyperparameters.NumericalHyperparameter):

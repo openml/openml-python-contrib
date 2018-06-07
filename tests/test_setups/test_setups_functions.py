@@ -136,6 +136,6 @@ class TestSetupFunctions(unittest.TestCase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
 
-            with self.assertRaises(ValueError):
+            with self.assertRaises(KeyError):
                 openmlcontrib.setups.setup_to_configuration(setup, cs)
-            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
+                self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
