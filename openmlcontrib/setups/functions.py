@@ -169,13 +169,13 @@ def setup_in_config_space(setup, config_space):
         return False
 
 
-def filter_setups_by_config_space(setups, config_space):
+def filter_setup_list_by_config_space(setups, config_space):
     """
     Removes all setups that do not comply to the config space
 
     Parameters
     ----------
-    setup : OpenMLSetup
+    setups : OpenMLSetup
         the setup object
 
     config_space : ConfigurationSpace
