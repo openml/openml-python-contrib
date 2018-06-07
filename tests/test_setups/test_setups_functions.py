@@ -79,6 +79,7 @@ class TestSetupFunctions(unittest.TestCase):
                 setup = pickle.load(fp)
 
             openmlcontrib.setups.setup_to_configuration(setup, cs)
+            self.assertTrue(openmlcontrib.setups.setup_in_config_space(setup, cs))
 
     def test_setup_to_configuration_raises_illegal_value(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("degree", -5, -1, default_value=-3)
@@ -89,8 +90,9 @@ class TestSetupFunctions(unittest.TestCase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
 
-                with self.assertRaises(ValueError):
-                    openmlcontrib.setups.setup_to_configuration(setup, cs)
+            with self.assertRaises(ValueError):
+                openmlcontrib.setups.setup_to_configuration(setup, cs)
+            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
 
     def test_setup_to_configuration_raises_param_not_present(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("test123", -20, 20, default_value=-3)
@@ -101,5 +103,6 @@ class TestSetupFunctions(unittest.TestCase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
 
-                with self.assertRaises(ValueError):
-                    openmlcontrib.setups.setup_to_configuration(setup, cs)
+            with self.assertRaises(ValueError):
+                openmlcontrib.setups.setup_to_configuration(setup, cs)
+            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))

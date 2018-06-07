@@ -144,3 +144,26 @@ def setup_to_configuration(setup, config_space):
             name_values[name] = val
 
     return ConfigSpace.Configuration(config_space, name_values)
+
+
+def setup_in_config_space(setup, config_space):
+    """
+    Checks whether a given setup is within the boundaries of a config space
+
+    Parameters
+    ----------
+    setup : OpenMLSetup
+        the setup object
+
+    config_space : ConfigurationSpace
+        The configuration space
+
+    Returns
+    -------
+    Whether this setup is within the boundaries of a config space
+    """
+    try:
+        setup_to_configuration(setup, config_space)
+        return True
+    except ValueError:
+        return False
