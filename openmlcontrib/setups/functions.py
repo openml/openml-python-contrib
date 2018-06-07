@@ -126,6 +126,11 @@ def setup_to_configuration(setup, config_space):
     -------
     The Configuration object
     """
+    if not isinstance(setup, openml.setups.OpenMLSetup):
+        raise TypeError('setup should be of type: openml.setups.OpenMLSetup')
+    if not isinstance(config_space, ConfigSpace.ConfigurationSpace):
+        raise TypeError('config_space should be of type: ConfigSpace.ConfigurationSpace')
+
     name_values = dict()
     name_inputid = {param.parameter_name: id for id, param in setup.parameters.items()}
     for hyperparameter in config_space.get_hyperparameters():
@@ -187,6 +192,9 @@ def filter_setup_list_by_config_space(setups, config_space):
     -------
     A dict mapping from setup id to setup, all complying to the config space
     """
+    if not isinstance(setups, dict):
+        raise TypeError('setups should be of type: dict')
+
     setups_remain = {}
     for sid, setup in setups():
         if setup_in_config_space(setup, config_space):
