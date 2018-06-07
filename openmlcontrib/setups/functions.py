@@ -196,7 +196,7 @@ def filter_setup_list_by_config_space(setups, config_space):
         raise TypeError('setups should be of type: dict')
 
     setups_remain = {}
-    for sid, setup in setups():
+    for sid, setup in setups.items():
         if setup_in_config_space(setup, config_space):
             setups_remain[sid] = setup
     return setups_remain
