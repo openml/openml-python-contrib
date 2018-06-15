@@ -1,3 +1,4 @@
 ConfigSpace
 Cython
 openml
+pandas

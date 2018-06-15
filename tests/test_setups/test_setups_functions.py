@@ -138,3 +138,12 @@ class TestSetupFunctions(unittest.TestCase):
             with self.assertRaises(KeyError):
                 openmlcontrib.setups.setup_to_configuration(setup, cs)
                 self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
+    
+    def test_setup_to_parameter_dict(self):
+        relevant_parameters = {'C', 'gamma', 'degree'}
+        for setup_file in os.listdir('../data/setups'):
+            with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
+                setup = pickle.load(fp)
+            result = openmlcontrib.setups.setup_to_parameter_dict(setup, 'parameter_name', relevant_parameters)
+
+            self.assertEquals(relevant_parameters, set(result.keys()))

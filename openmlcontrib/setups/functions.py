@@ -3,6 +3,7 @@ import ConfigSpace
 import copy
 import json
 import openml
+import typing
 
 
 def filter_setup_list(setupid_setup, param_name, min=None, max=None, allowed_values=None):
@@ -200,3 +201,47 @@ def filter_setup_list_by_config_space(setups, config_space):
         if setup_in_config_space(setup, config_space):
             setups_remain[sid] = setup
     return setups_remain
+
+
+def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
+                            parameter_field: str,
+                            relevant_parameters: typing.Set[str]):
+    """
+    Transforms a setup into a dict, containing the relevant parameters as key / value pair
+
+    Parameters
+    ----------
+    setup : OpenMLSetup
+        the OpenML setup object
+
+    parameter_field : str
+        the key field in the parameter object that should be selected. Use full_name in order to avoid collisions; a
+        good alternative is the use of parameter_name
+
+    relevant_parameters : set
+        The parameters that are expected to become the keys of the dict (others are neglected). Which field is used
+        depends on the value of parameter_field
+
+    Returns
+    -------
+    A dict mapping from parameter name to value
+
+    """
+    hyperparameters = {}
+    for pid, hyperparameter in setup.parameters.items():
+        name = getattr(hyperparameter, parameter_field)
+        value = hyperparameter.value
+        if name not in relevant_parameters:
+            continue
+
+        if name in hyperparameters:
+            # duplicate parameter name, this can happen due to sub-flows.
+            # when this happens, we need to fix
+            raise KeyError('Duplicate hyperparameter: %s' % name)
+        hyperparameters[name] = value
+
+    missing_parameters = relevant_parameters - hyperparameters.keys()
+    if len(missing_parameters) > 0:
+        raise ValueError('Setup %d does not comply to relevant parameters set. Missing: %s' % (setup.setup_id,
+                                                                                               str(missing_parameters)))
+    return hyperparameters
