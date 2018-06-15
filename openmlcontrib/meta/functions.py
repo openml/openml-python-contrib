@@ -25,7 +25,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         Set with the parameter names. These will be returned as column names
     evaluation_measure:
         Evaluation measure to obtain
-    cache_directory:
+    cache_directory: str or None
         Directory where cache files can be stored to or obtained from
 
     Returns
