@@ -44,7 +44,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         setups_cache_path = os.path.join(cache_flow_task, 'setups_%d.pkl' % num_runs)
 
     if cache_directory is None or not os.path.isfile(evaluations_cache_path):
-        # caches num_runs random evaluations
+        # downloads (and caches, if allowed) num_runs random evaluations
         evaluations = openml.evaluations.list_evaluations(evaluation_measure,
                                                           size=num_runs, task=[task_id], flow=[flow_id])
         if len(evaluations) < num_runs:
@@ -58,7 +58,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
             evaluations = pickle.load(fp)
 
     if cache_directory is None or not os.path.isfile(setups_cache_path):
-        # caches the setups that belong to the evaluations
+        # downloads (and caches, if allowed) the setups that belong to the evaluations
         setup_ids = []
         for run_id, evaluation in evaluations.items():
             setup_ids.append(evaluation.setup_id)
@@ -77,9 +77,9 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
     for setup_id, setup in setups.items():
         setup_parameters[setup_id] = openmlcontrib.setups.setup_to_parameter_dict(setup,
                                                                                   'parameter_name',
-                                                                                  relevant_parameters.keys())
+                                                                                  set(relevant_parameters.keys()))
 
-    all_columns = list(relevant_parameters)
+    all_columns = list(relevant_parameters.keys())
     all_columns.append('y')
     dataframe = pd.DataFrame(columns=all_columns)
 
