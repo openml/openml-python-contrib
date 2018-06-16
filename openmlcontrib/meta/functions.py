@@ -1,4 +1,5 @@
-import json
+import ConfigSpace
+import ConfigSpace.hyperparameters
 import openml
 import openmlcontrib
 import pandas as pd
@@ -8,7 +9,7 @@ import typing
 
 
 def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int,
-                                       relevant_parameters: typing.Dict[str, str],
+                                       configuration_space: ConfigSpace.ConfigurationSpace,
                                        evaluation_measure: str, cache_directory: typing.Union[str, None]):
     """
     Obtains a number of runs from a given flow on a given task, and returns a (relevant) set of parameters
@@ -21,8 +22,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         The flow id
     num_runs: int
         Maximum on the number of runs per task
-    relevant_parameters: dict
-        Set with the parameter names. These will be returned as column names
+    configuration_space: ConfigurationSpace
+        Determines valid parameters and ranges. These will be returned as column names
     evaluation_measure:
         Evaluation measure to obtain
     cache_directory: str or None
@@ -33,7 +34,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
     dataframe : a pandas dataframe
     """
 
-    if 'y' in relevant_parameters.keys():
+    if 'y' in configuration_space.get_hyperparameters():
         raise ValueError('y is a column name for the evaluation measure')
 
     if cache_directory is not None:
@@ -73,44 +74,30 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
             setups = pickle.load(fp)
 
     setup_parameters = {}
-
+    relevant_parameters = configuration_space.get_hyperparameter_names()
     for setup_id, setup in setups.items():
         setup_parameters[setup_id] = openmlcontrib.setups.setup_to_parameter_dict(setup,
                                                                                   'parameter_name',
-                                                                                  set(relevant_parameters.keys()))
+                                                                                  set(relevant_parameters))
 
-    all_columns = list(relevant_parameters.keys())
+    all_columns = list(relevant_parameters)
     all_columns.append('y')
     dataframe = pd.DataFrame(columns=all_columns)
 
-    def complies_to_definition(evaluation):
-        currentXy = {}
-        legalConfig = True
-        for idx, param in enumerate(relevant_parameters):
-            value = json.loads(setup_parameters[evaluation.setup_id][param])
-            if relevant_parameters[param] == 'numeric':
-                if not (isinstance(value, int) or isinstance(value, float)):
-                    legalConfig = False
-
-            currentXy[param] = value
-
-        currentXy['y'] = evaluation.value
-        return currentXy, legalConfig
-
     for run_id, evaluation in evaluations.items():
-        currentXy, legalConfig = complies_to_definition(evaluation)
-
-        if legalConfig:
-            dataframe = dataframe.append(currentXy, ignore_index=True)
+        current_setup = setups[evaluation.setup_id]
+        if openmlcontrib.setups.setup_in_config_space(current_setup, configuration_space):
+            current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup, 'parameter_name', set(relevant_parameters))
+            dataframe = dataframe.append(current_setup_as_dict, ignore_index=True)
         else:
             # sometimes, a numeric param can contain string values.
             # TODO: determine what to do with these. Raise Value, add or skip
-            print('skipping', currentXy)
+            print('skipping', current_setup_as_dict)
 
     all_numeric_columns = list(['y'])
-    for parameter, datatype in relevant_parameters.items():
-        if datatype == 'numeric':
-            all_numeric_columns.append(parameter)
+    for param in configuration_space.get_hyperparameters():
+        if isinstance(param, ConfigSpace.hyperparameters.NumericalHyperparameter):
+            all_numeric_columns.append(param.name)
 
     dataframe[all_numeric_columns] = dataframe[all_numeric_columns].apply(pd.to_numeric)
 
