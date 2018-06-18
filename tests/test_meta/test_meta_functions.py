@@ -39,10 +39,16 @@ class TestMetaFunctions(unittest.TestCase):
         for param in cs.get_hyperparameters():
             if isinstance(param, ConfigSpace.UniformFloatHyperparameter):
                 self.assertEquals(df[param.name].dtype, np.float64)
+                self.assertGreater(df[param.name].min(), -1000000)
+                self.assertLessEqual(df[param.name].max(), 1000000)
             elif isinstance(param, ConfigSpace.UniformIntegerHyperparameter):
                 self.assertEquals(df[param.name].dtype, np.int64)
+                self.assertGreater(df[param.name].min(), -1000000)
+                self.assertLessEqual(df[param.name].max(), 1000000)
             elif isinstance(param, ConfigSpace.CategoricalHyperparameter):
                 self.assertIn(df[param.name].dtype, [object])
             else:
                 raise ValueError()
+        self.assertGreater(df['y'].min(), -1000000)
+        self.assertLessEqual(df['y'].max(), 1000000)
         self.assertIn(df['y'].dtype, [np.float64, np.int64])

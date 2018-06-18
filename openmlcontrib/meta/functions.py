@@ -76,13 +76,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         with open(setups_cache_path, 'rb') as fp:
             setups = pickle.load(fp)
 
-    setup_parameters = {}
     relevant_parameters = configuration_space.get_hyperparameter_names()
-    for setup_id, setup in setups.items():
-        setup_parameters[setup_id] = openmlcontrib.setups.setup_to_parameter_dict(setup,
-                                                                                  parameter_field,
-                                                                                  set(relevant_parameters))
-
     all_columns = list(relevant_parameters)
     all_columns.append('y')
     dataframe = pd.DataFrame(columns=all_columns)
@@ -93,6 +87,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
             current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup,
                                                                                  parameter_field,
                                                                                  set(relevant_parameters))
+            current_setup_as_dict['y'] = evaluation.value
             dataframe = dataframe.append(current_setup_as_dict, ignore_index=True)
         else:
             # sometimes, a numeric param can contain string values.
