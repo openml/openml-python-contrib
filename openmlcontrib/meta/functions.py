@@ -9,7 +9,7 @@ import typing
 
 
 def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int,
-                                       configuration_space: ConfigSpace.ConfigurationSpace,
+                                       configuration_space: ConfigSpace.ConfigurationSpace, parameter_field: str,
                                        evaluation_measure: str, cache_directory: typing.Union[str, None]):
     """
     Obtains a number of runs from a given flow on a given task, and returns a (relevant) set of parameters
@@ -24,6 +24,9 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         Maximum on the number of runs per task
     configuration_space: ConfigurationSpace
         Determines valid parameters and ranges. These will be returned as column names
+    parameter_field: str
+        the key field in the parameter object that should be selected. Use full_name in order to avoid collisions; a
+        good alternative is the use of parameter_name
     evaluation_measure:
         Evaluation measure to obtain
     cache_directory: str or None
@@ -77,7 +80,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
     relevant_parameters = configuration_space.get_hyperparameter_names()
     for setup_id, setup in setups.items():
         setup_parameters[setup_id] = openmlcontrib.setups.setup_to_parameter_dict(setup,
-                                                                                  'parameter_name',
+                                                                                  parameter_field,
                                                                                   set(relevant_parameters))
 
     all_columns = list(relevant_parameters)
@@ -87,7 +90,9 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
     for run_id, evaluation in evaluations.items():
         current_setup = setups[evaluation.setup_id]
         if openmlcontrib.setups.setup_in_config_space(current_setup, configuration_space):
-            current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup, 'parameter_name', set(relevant_parameters))
+            current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup,
+                                                                                 parameter_field,
+                                                                                 set(relevant_parameters))
             dataframe = dataframe.append(current_setup_as_dict, ignore_index=True)
         else:
             # sometimes, a numeric param can contain string values.

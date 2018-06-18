@@ -29,6 +29,7 @@ class TestMetaFunctions(unittest.TestCase):
 
         cs = TestMetaFunctions._get_valid_config_space()
         df = openmlcontrib.meta.get_task_flow_results_as_dataframe(59, 7707, num_configs, configuration_space=cs,
+                                                                   parameter_field='parameter_name',
                                                                    evaluation_measure='predictive_accuracy',
                                                                    cache_directory=None)
 
