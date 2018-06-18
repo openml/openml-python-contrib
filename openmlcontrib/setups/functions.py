@@ -238,7 +238,8 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
             # duplicate parameter name, this can happen due to sub-flows.
             # when this happens, we need to fix
             raise KeyError('Duplicate hyperparameter: %s' % name)
-        hyperparameters[name] = value
+
+        hyperparameters[name] = json.loads(value)
 
     missing_parameters = relevant_parameters - hyperparameters.keys()
     if len(missing_parameters) > 0:
