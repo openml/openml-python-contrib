@@ -30,6 +30,8 @@ class TestMetaFunctions(TestBase):
                 self.assertLessEqual(df[param.name].max(), 1000000)
             elif isinstance(param, ConfigSpace.CategoricalHyperparameter):
                 self.assertIn(df[param.name].dtype, [object])
+            elif isinstance(param, ConfigSpace.UnParametrizedHyperparameter):
+                self.assertIn(df[param.name].dtype, [object])
             else:
                 raise ValueError()
         self.assertGreater(df['y'].min(), -1000000)

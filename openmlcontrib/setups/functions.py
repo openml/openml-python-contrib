@@ -146,6 +146,9 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
             # when this happens, we need to fix
             raise KeyError('Duplicate hyperparameter: %s' % name)
         hyperparameter_values[name] = json.loads(value)
+        # make sure that categorical hyperparameters do not get mistaken for bools, int, etc
+        if isinstance(configuration_space.get_hyperparameter(name), ConfigSpace.CategoricalHyperparameter):
+            hyperparameter_values[name] = str(hyperparameter_values[name])
 
     missing_parameters = set(configuration_space.get_hyperparameter_names()) - hyperparameter_values.keys()
     if len(missing_parameters) > 0:

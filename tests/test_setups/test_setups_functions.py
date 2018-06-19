@@ -81,9 +81,9 @@ class TestSetupFunctions(TestBase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
             setups[setup.setup_id] = setup
-        self.assertEquals(len(setups), 20)
+        self.assertEqual(len(setups), 20)
         setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, cs)
-        self.assertEquals(len(setups), len(setups_filtered))
+        self.assertEqual(len(setups), len(setups_filtered))
 
     def test_filter_setup_list_by_config_space_fails(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("degree", -5, -1, default_value=-3)

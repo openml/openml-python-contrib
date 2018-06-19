@@ -4,7 +4,7 @@ import typing
 
 
 def get_active_hyperparameters(configuration_space: ConfigSpace.ConfigurationSpace,
-                               key_values: typing.Dict[str, typing.Union[str,int,float]]) -> typing.Set[str]:
+                               key_values: typing.Dict[str, typing.Union[str, int, float, bool]]) -> typing.Set[str]:
     """
     Returns a set of hyperparameters that are considered active
 
@@ -24,7 +24,11 @@ def get_active_hyperparameters(configuration_space: ConfigSpace.ConfigurationSpa
     vector = np.ndarray((len(configuration_space._hyperparameters),), dtype=np.float)
     for hyperparameter in configuration_space.get_hyperparameters():
         name = hyperparameter.name
-        vector[configuration_space._hyperparameter_idx[name]] = hyperparameter._inverse_transform(key_values[name])
+        # note that the openml-python json sometimes accidentally mistakes strings for bools or numeric values
+        value_to_search = str(key_values[name]) if isinstance(hyperparameter, ConfigSpace.CategoricalHyperparameter) \
+            else key_values[name]
+        value = hyperparameter._inverse_transform(value_to_search)
+        vector[configuration_space._hyperparameter_idx[name]] = value
     active_parameters = set()
 
     for hp_name, hyperparameter in configuration_space._hyperparameters.items():

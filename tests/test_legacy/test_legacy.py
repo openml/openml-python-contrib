@@ -1,7 +1,6 @@
 import openmlcontrib
 import os
 import pickle
-import unittest
 
 from openmlcontrib.testing import TestBase
 
@@ -12,9 +11,9 @@ class TestLegacyFunctions(TestBase):
         cs = TestBase._get_libsvm_svc_config_space()
         
         expected_active_parameters = {
-            'poly': {'C', 'kernel', 'degree', 'gamma', 'coef0'}, 
-            'rbf': {'C', 'kernel', 'gamma'}, 
-            'sigmoid': {'C', 'kernel', 'gamma', 'coef0'}, 
+            'poly': {'C', 'kernel', 'degree', 'gamma', 'coef0', 'tol', 'shrinking', 'max_iter', 'strategy'},
+            'rbf': {'C', 'kernel', 'gamma', 'tol', 'shrinking', 'max_iter', 'strategy'},
+            'sigmoid': {'C', 'kernel', 'gamma', 'coef0', 'tol', 'shrinking', 'max_iter', 'strategy'},
         }
 
         for setup_file in os.listdir('../data/setups'):
