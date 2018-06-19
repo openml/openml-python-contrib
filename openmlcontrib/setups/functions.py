@@ -3,6 +3,7 @@ import ConfigSpace
 import copy
 import json
 import openml
+import openmlcontrib
 import typing
 
 
@@ -14,27 +15,27 @@ def filter_setup_list(setupid_setup, param_name, min=None, max=None, allowed_val
     modules well. Will be updated in a non-backward compatible 
     manner in a later version. 
     
-     Parameters
-        ----------
-        setupid_setup : dict of OpenMLSetup
-            As obtained from the openml.setups.list_setups fn
-        
-        param_name : str
-            the name of the parameter which values should be restricted
-        
-        min : int
-            setups with values below this threshold will be removed
-        
-        max : int
-            setups with values above this threshold will be removed
-        
-        allowed_values : list
-            list of allowed values
-        
-        Returns
-        -------
-        model : dict of OpenMLSetup
-            a dict, with the setups that did not comply removed 
+    Parameters
+    ----------
+    setupid_setup : dict of OpenMLSetup
+        As obtained from the openml.setups.list_setups fn
+
+    param_name : str
+        the name of the parameter which values should be restricted
+
+    min : int
+        setups with values below this threshold will be removed
+
+    max : int
+        setups with values above this threshold will be removed
+
+    allowed_values : list
+        list of allowed values
+
+    Returns
+    -------
+    model : dict of OpenMLSetup
+        a dict, with the setups that did not comply removed
     """
     allowed = dict()
 
@@ -110,48 +111,53 @@ def obtain_setups_by_ids(setup_ids, require_all=True, limit=250):
     return setups
 
 
-def setup_to_configuration(setup, config_space):
+def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
+                            parameter_field: str,
+                            configuration_space: ConfigSpace.ConfigurationSpace):
     """
-    Turns an OpenML setup object into a Configuration object.
-    Throws an error if not possible
+    Transforms a setup into a dict, containing the relevant parameters as key / value pair
 
     Parameters
     ----------
     setup : OpenMLSetup
-        the setup object
+        the OpenML setup object
 
-    config_space : ConfigurationSpace
-        The configuration space
+    parameter_field : str
+        the key field in the parameter object that should be selected. Use full_name in order to avoid collisions; a
+        good alternative is the use of parameter_name
+
+    configuration_space : ConfigurationSpace
+        Configuration Space (used for determining relevant parameters and dependencies)
 
     Returns
     -------
-    The Configuration object
+    A dict mapping from parameter name to value
+
     """
-    if not isinstance(setup, openml.setups.OpenMLSetup):
-        raise TypeError('setup should be of type: openml.setups.OpenMLSetup')
-    if not isinstance(config_space, ConfigSpace.ConfigurationSpace):
-        raise TypeError('config_space should be of type: ConfigSpace.ConfigurationSpace')
+    hyperparameter_values = dict()
+    for pid, hyperparameter in setup.parameters.items():
+        name = getattr(hyperparameter, parameter_field)
+        value = hyperparameter.value
+        if name not in configuration_space.get_hyperparameter_names():
+            continue
 
-    name_values = dict()
-    name_inputid = {param.parameter_name: id for id, param in setup.parameters.items()}
-    for hyperparameter in config_space.get_hyperparameters():
-        name = hyperparameter.name
-        if name not in name_inputid.keys():
-            raise KeyError('Setup does not contain parameter: %s' % hyperparameter.name)
-        value = setup.parameters[name_inputid[hyperparameter.name]].value
-        # TODO: take into account hyperparameter conditionals. i.e.,
-        # the libsvm_svc degree is only relevant when the poly kernel is selected
-        if isinstance(hyperparameter, ConfigSpace.hyperparameters.UniformIntegerHyperparameter):
-            name_values[name] = int(value)
-        elif isinstance(hyperparameter, ConfigSpace.hyperparameters.NumericalHyperparameter):
-            name_values[name] = float(value)
-        else:
-            val = json.loads(value)
-            if isinstance(val, bool):
-                val = str(val)
-            name_values[name] = val
+        if name in hyperparameter_values:
+            # duplicate parameter name, this can happen due to sub-flows.
+            # when this happens, we need to fix
+            raise KeyError('Duplicate hyperparameter: %s' % name)
+        hyperparameter_values[name] = json.loads(value)
 
-    return ConfigSpace.Configuration(config_space, name_values)
+    missing_parameters = set(configuration_space.get_hyperparameter_names()) - hyperparameter_values.keys()
+    if len(missing_parameters) > 0:
+        raise ValueError('Setup %d does not comply to relevant parameters set. Missing: %s' % (setup.setup_id,
+                                                                                               str(missing_parameters)))
+    active_parameters = openmlcontrib.legacy.get_active_hyperparameters(configuration_space, hyperparameter_values)
+
+    for hyperparameter in set(hyperparameter_values.keys()):
+        if hyperparameter not in active_parameters:
+            del hyperparameter_values[hyperparameter]
+
+    return hyperparameter_values
 
 
 def setup_in_config_space(setup, config_space):
@@ -171,20 +177,22 @@ def setup_in_config_space(setup, config_space):
     Whether this setup is within the boundaries of a config space
     """
     try:
-        setup_to_configuration(setup, config_space)
+        name_values = setup_to_parameter_dict(setup, 'parameter_name', config_space)
+        ConfigSpace.Configuration(config_space, name_values)
         return True
     except ValueError:
         return False
 
 
-def filter_setup_list_by_config_space(setups, config_space):
+def filter_setup_list_by_config_space(setups: typing.Dict[int, openml.setups.OpenMLSetup],
+                                      config_space: ConfigSpace.ConfigurationSpace):
     """
     Removes all setups that do not comply to the config space
 
     Parameters
     ----------
-    setups : OpenMLSetup
-        the setup object
+    setups : dict
+        a dict mapping from setup id to the OpenMLSetup objects
 
     config_space : ConfigurationSpace
         The configuration space
@@ -201,48 +209,3 @@ def filter_setup_list_by_config_space(setups, config_space):
         if setup_in_config_space(setup, config_space):
             setups_remain[sid] = setup
     return setups_remain
-
-
-def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
-                            parameter_field: str,
-                            relevant_parameters: typing.Set[str]):
-    """
-    Transforms a setup into a dict, containing the relevant parameters as key / value pair
-
-    Parameters
-    ----------
-    setup : OpenMLSetup
-        the OpenML setup object
-
-    parameter_field : str
-        the key field in the parameter object that should be selected. Use full_name in order to avoid collisions; a
-        good alternative is the use of parameter_name
-
-    relevant_parameters : set
-        The parameters that are expected to become the keys of the dict (others are neglected). Which field is used
-        depends on the value of parameter_field
-
-    Returns
-    -------
-    A dict mapping from parameter name to value
-
-    """
-    hyperparameters = {}
-    for pid, hyperparameter in setup.parameters.items():
-        name = getattr(hyperparameter, parameter_field)
-        value = hyperparameter.value
-        if name not in relevant_parameters:
-            continue
-
-        if name in hyperparameters:
-            # duplicate parameter name, this can happen due to sub-flows.
-            # when this happens, we need to fix
-            raise KeyError('Duplicate hyperparameter: %s' % name)
-
-        hyperparameters[name] = json.loads(value)
-
-    missing_parameters = relevant_parameters - hyperparameters.keys()
-    if len(missing_parameters) > 0:
-        raise ValueError('Setup %d does not comply to relevant parameters set. Missing: %s' % (setup.setup_id,
-                                                                                               str(missing_parameters)))
-    return hyperparameters

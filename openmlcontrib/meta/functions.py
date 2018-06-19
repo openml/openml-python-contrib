@@ -86,10 +86,13 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         if openmlcontrib.setups.setup_in_config_space(current_setup, configuration_space):
             current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup,
                                                                                  parameter_field,
-                                                                                 set(relevant_parameters))
+                                                                                 configuration_space)
             current_setup_as_dict['y'] = evaluation.value
             dataframe = dataframe.append(current_setup_as_dict, ignore_index=True)
         else:
+            current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup,
+                                                                                 parameter_field,
+                                                                                 configuration_space)
             # sometimes, a numeric param can contain string values.
             # TODO: determine what to do with these. Raise Value, add or skip
             print('skipping', current_setup_as_dict)

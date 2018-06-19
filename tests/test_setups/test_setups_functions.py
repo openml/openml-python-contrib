@@ -3,15 +3,17 @@ import openml
 import openmlcontrib
 import os
 import pickle
-import unittest
+
+from openmlcontrib.testing import TestBase
 
 
-class TestSetupFunctions(unittest.TestCase):
+class TestSetupFunctions(TestBase):
 
     def setUp(self):
         self.live_server = "https://www.openml.org/api/v1/xml/"
         self.test_server = "https://test.openml.org/api/v1/xml/"
         openml.config.server = self.test_server
+        openml.config.apikey = ''
 
     def test_obtain_setups_by_ids(self):
         setup_ids = [i for i in range(1, 30)]
@@ -51,8 +53,8 @@ class TestSetupFunctions(unittest.TestCase):
         threshold = 3
         poly_setups = openmlcontrib.setups.filter_setup_list(setupid_setup, 'kernel', allowed_values=['poly'])
 
-        poly_setups_smaller = openmlcontrib.setups.filter_setup_list(setupid_setup, 'degree', max=threshold)
-        poly_setups_bigger = openmlcontrib.setups.filter_setup_list(setupid_setup, 'degree', min=threshold+1)
+        poly_setups_smaller = openmlcontrib.setups.filter_setup_list(poly_setups, 'degree', max=threshold)
+        poly_setups_bigger = openmlcontrib.setups.filter_setup_list(poly_setups, 'degree', min=threshold+1)
 
         smaller_ids = set(poly_setups_smaller.keys())
         bigger_ids = set(poly_setups_bigger.keys())
@@ -62,32 +64,17 @@ class TestSetupFunctions(unittest.TestCase):
         self.assertEquals(len(inters), 0)
         self.assertEquals(len(smaller_ids) + len(bigger_ids), len(all_ids))
 
-    @staticmethod
-    def _get_valid_config_space():
-        C = ConfigSpace.UniformFloatHyperparameter("C", 0.03125, 32768, log=True, default_value=1.0)
-        kernel = ConfigSpace.CategoricalHyperparameter(name="kernel",
-                                                       choices=["rbf", "poly", "sigmoid"], default_value="rbf")
-        degree = ConfigSpace.UniformIntegerHyperparameter("degree", 1, 5, default_value=3)
-        gamma = ConfigSpace.UniformFloatHyperparameter("gamma", 3.0517578125e-05, 8, log=True,
-                                                       default_value=0.1)
-        coef0 = ConfigSpace.UniformFloatHyperparameter("coef0", -1, 1, default_value=0)
-
-        cs = ConfigSpace.ConfigurationSpace()
-        cs.add_hyperparameters([C, kernel, degree, gamma, coef0])
-        return cs
-
-    def test_setup_to_configuration(self):
-        cs = TestSetupFunctions._get_valid_config_space()
+    def test_setup_in_configuration_space(self):
+        cs = TestBase._get_libsvm_svc_config_space()
 
         for setup_file in os.listdir('../data/setups'):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
 
-            openmlcontrib.setups.setup_to_configuration(setup, cs)
             self.assertTrue(openmlcontrib.setups.setup_in_config_space(setup, cs))
 
     def test_filter_setup_list_by_config_space(self):
-        cs = TestSetupFunctions._get_valid_config_space()
+        cs = TestBase._get_libsvm_svc_config_space()
 
         setups = {}
         for setup_file in os.listdir('../data/setups'):
@@ -113,7 +100,7 @@ class TestSetupFunctions(unittest.TestCase):
         setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, cs)
         self.assertEquals(len(setups_filtered), 0)
 
-    def test_setup_to_configuration_raises_illegal_value(self):
+    def test_setup_in_configuration_space_illegal_value(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("degree", -5, -1, default_value=-3)
         cs = ConfigSpace.ConfigurationSpace()
         cs.add_hyperparameters([degree])
@@ -122,11 +109,9 @@ class TestSetupFunctions(unittest.TestCase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
 
-            with self.assertRaises(ValueError):
-                openmlcontrib.setups.setup_to_configuration(setup, cs)
             self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
 
-    def test_setup_to_configuration_raises_param_not_present(self):
+    def test_setup_in_configuration_space_param_not_present(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("test123", -20, 20, default_value=-3)
         cs = ConfigSpace.ConfigurationSpace()
         cs.add_hyperparameters([degree])
@@ -135,15 +120,19 @@ class TestSetupFunctions(unittest.TestCase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
 
-            with self.assertRaises(KeyError):
-                openmlcontrib.setups.setup_to_configuration(setup, cs)
-                self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
+            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
     
     def test_setup_to_parameter_dict(self):
-        relevant_parameters = {'C', 'gamma', 'degree'}
+        expected_active_parameters = {
+            'poly': {'C', 'kernel', 'degree', 'gamma', 'coef0'},
+            'rbf': {'C', 'kernel', 'gamma'},
+            'sigmoid': {'C', 'kernel', 'gamma', 'coef0'},
+        }
+        cs = TestBase._get_libsvm_svc_config_space()
+
         for setup_file in os.listdir('../data/setups'):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
-            result = openmlcontrib.setups.setup_to_parameter_dict(setup, 'parameter_name', relevant_parameters)
+            result = openmlcontrib.setups.setup_to_parameter_dict(setup, 'parameter_name', cs)
 
-            self.assertEquals(relevant_parameters, set(result.keys()))
+            self.assertEquals(expected_active_parameters[result['kernel']], set(result.keys()))

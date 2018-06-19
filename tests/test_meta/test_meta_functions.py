@@ -3,31 +3,18 @@ import numpy as np
 import openml
 import openmlcontrib
 import pandas as pd
-import unittest
+
+from openmlcontrib.testing import TestBase
 
 
-class TestMetaFunctions(unittest.TestCase):
-
-    @staticmethod
-    def _get_valid_config_space():
-        C = ConfigSpace.UniformFloatHyperparameter("C", 0.03125, 32768, log=True, default_value=1.0)
-        kernel = ConfigSpace.CategoricalHyperparameter(name="kernel",
-                                                       choices=["rbf", "poly", "sigmoid"], default_value="rbf")
-        degree = ConfigSpace.UniformIntegerHyperparameter("degree", 1, 5, default_value=3)
-        gamma = ConfigSpace.UniformFloatHyperparameter("gamma", 3.0517578125e-05, 8, log=True,
-                                                       default_value=0.1)
-        coef0 = ConfigSpace.UniformFloatHyperparameter("coef0", -1, 1, default_value=0)
-
-        cs = ConfigSpace.ConfigurationSpace()
-        cs.add_hyperparameters([C, kernel, degree, gamma, coef0])
-        return cs
+class TestMetaFunctions(TestBase):
 
     def test_get_task_flow_results_as_dataframe(self):
         openml.config.server = 'https://www.openml.org/api/v1/'
 
         num_configs = 50
 
-        cs = TestMetaFunctions._get_valid_config_space()
+        cs = TestBase._get_libsvm_svc_config_space()
         df = openmlcontrib.meta.get_task_flow_results_as_dataframe(59, 7707, num_configs, configuration_space=cs,
                                                                    parameter_field='parameter_name',
                                                                    evaluation_measure='predictive_accuracy',
@@ -37,12 +24,8 @@ class TestMetaFunctions(unittest.TestCase):
         self.assertEqual(df.shape, (num_configs, len(cs.get_hyperparameter_names()) + 1))
 
         for param in cs.get_hyperparameters():
-            if isinstance(param, ConfigSpace.UniformFloatHyperparameter):
-                self.assertEquals(df[param.name].dtype, np.float64)
-                self.assertGreater(df[param.name].min(), -1000000)
-                self.assertLessEqual(df[param.name].max(), 1000000)
-            elif isinstance(param, ConfigSpace.UniformIntegerHyperparameter):
-                self.assertEquals(df[param.name].dtype, np.int64)
+            if isinstance(param, ConfigSpace.hyperparameters.NumericalHyperparameter):
+                self.assertEqual(df[param.name].dtype, np.float64)
                 self.assertGreater(df[param.name].min(), -1000000)
                 self.assertLessEqual(df[param.name].max(), 1000000)
             elif isinstance(param, ConfigSpace.CategoricalHyperparameter):

@@ -1,3 +1,4 @@
+from . import legacy
 from . import meta
 from . import misc
 from . import setups

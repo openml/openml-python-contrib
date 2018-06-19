@@ -1,12 +1,14 @@
 import openml
 import openmlcontrib
-import unittest
+
+from openmlcontrib.testing import TestBase
 
 
-class TestMiscFunctions(unittest.TestCase):
+class TestMiscFunctions(TestBase):
 
     def setUp(self):
         openml.config.server = "https://test.openml.org/api/v1/xml/"
+        openml.config.apikey = ''
 
     def test_filter_data_listing(self):
         prop = 'name'
