@@ -3,6 +3,15 @@ import numpy as np
 import typing
 
 
+def interpret_string(hyperparameter: ConfigSpace.hyperparameters.Hyperparameter):
+    if isinstance(hyperparameter, ConfigSpace.CategoricalHyperparameter):
+        return True
+    if isinstance(hyperparameter, ConfigSpace.UnParametrizedHyperparameter):
+        if isinstance(hyperparameter.value, str):
+            return True
+    return False
+
+
 def get_active_hyperparameters(configuration_space: ConfigSpace.ConfigurationSpace,
                                key_values: typing.Dict[str, typing.Union[str, int, float, bool]]) -> typing.Set[str]:
     """
@@ -25,8 +34,7 @@ def get_active_hyperparameters(configuration_space: ConfigSpace.ConfigurationSpa
     for hyperparameter in configuration_space.get_hyperparameters():
         name = hyperparameter.name
         # note that the openml-python json sometimes accidentally mistakes strings for bools or numeric values
-        value_to_search = str(key_values[name]) if isinstance(hyperparameter, ConfigSpace.CategoricalHyperparameter) \
-            else key_values[name]
+        value_to_search = str(key_values[name]) if interpret_string(hyperparameter) else key_values[name]
         value = hyperparameter._inverse_transform(value_to_search)
         vector[configuration_space._hyperparameter_idx[name]] = value
     active_parameters = set()
