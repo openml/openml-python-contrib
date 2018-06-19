@@ -18,7 +18,7 @@ class TestSetupFunctions(TestBase):
     def test_obtain_setups_by_ids(self):
         setup_ids = [i for i in range(1, 30)]
         setups = openmlcontrib.setups.obtain_setups_by_ids(setup_ids, limit=7)
-        self.assertEquals(set(setups.keys()), set(setup_ids))
+        self.assertEqual(set(setups.keys()), set(setup_ids))
 
     def test_obtain_setups_by_ids_incomplete_raise(self):
         with self.assertRaises(ValueError):
@@ -39,13 +39,13 @@ class TestSetupFunctions(TestBase):
         sigm_ids = set(sigm_setups.keys())
         inters = poly_ids.intersection(sigm_ids)
 
-        self.assertEquals(len(inters), 0)
+        self.assertEqual(len(inters), 0)
         self.assertGreater(len(poly_ids) + len(sigm_ids), 20)
         self.assertGreater(len(poly_ids), 10)
         self.assertGreater(len(sigm_ids), 10)
 
         poly_setups_prime = openmlcontrib.setups.filter_setup_list(poly_setups, 'kernel', allowed_values=['poly'])
-        self.assertEquals(poly_ids, set(poly_setups_prime.keys()))
+        self.assertEqual(poly_ids, set(poly_setups_prime.keys()))
 
     def test_filter_setup_list_nominal_numeric(self):
         openml.config.server = self.live_server
@@ -61,8 +61,8 @@ class TestSetupFunctions(TestBase):
         all_ids = set(poly_setups.keys())
         inters = smaller_ids.intersection(bigger_ids)
 
-        self.assertEquals(len(inters), 0)
-        self.assertEquals(len(smaller_ids) + len(bigger_ids), len(all_ids))
+        self.assertEqual(len(inters), 0)
+        self.assertEqual(len(smaller_ids) + len(bigger_ids), len(all_ids))
 
     def test_setup_in_configuration_space(self):
         cs = TestBase._get_libsvm_svc_config_space()
@@ -96,9 +96,9 @@ class TestSetupFunctions(TestBase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
             setups[setup.setup_id] = setup
-        self.assertEquals(len(setups), 20)
+        self.assertEqual(len(setups), 20)
         setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, cs)
-        self.assertEquals(len(setups_filtered), 0)
+        self.assertEqual(len(setups_filtered), 0)
 
     def test_setup_in_configuration_space_illegal_value(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("degree", -5, -1, default_value=-3)
@@ -135,4 +135,4 @@ class TestSetupFunctions(TestBase):
                 setup = pickle.load(fp)
             result = openmlcontrib.setups.setup_to_parameter_dict(setup, 'parameter_name', cs)
 
-            self.assertEquals(expected_active_parameters[result['kernel']], set(result.keys()))
+            self.assertEqual(expected_active_parameters[result['kernel']], set(result.keys()))
