@@ -124,9 +124,9 @@ class TestSetupFunctions(TestBase):
     
     def test_setup_to_parameter_dict(self):
         expected_active_parameters = {
-            'poly': {'C', 'kernel', 'degree', 'gamma', 'coef0'},
-            'rbf': {'C', 'kernel', 'gamma'},
-            'sigmoid': {'C', 'kernel', 'gamma', 'coef0'},
+            'poly': {'C', 'kernel', 'degree', 'gamma', 'coef0', 'tol', 'shrinking', 'max_iter', 'strategy'},
+            'rbf': {'C', 'kernel', 'gamma', 'tol', 'shrinking', 'max_iter', 'strategy'},
+            'sigmoid': {'C', 'kernel', 'gamma', 'coef0', 'tol', 'shrinking', 'max_iter', 'strategy'},
         }
         cs = TestBase._get_libsvm_svc_config_space()
 
