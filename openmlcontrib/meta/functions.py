@@ -1,5 +1,6 @@
 import ConfigSpace
 import ConfigSpace.hyperparameters
+import numpy as np
 import openml
 import openmlcontrib
 import pandas as pd
@@ -112,3 +113,21 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
     dataframe = dataframe.reindex(sorted(dataframe.columns), axis=1)
 
     return dataframe
+
+
+def dataframe_to_arff(dataframe, relation, description):
+    attributes = []
+    for idx, column_name in enumerate(dataframe.columns.values):
+        if np.issubdtype(dataframe[column_name].dtype, np.number):
+            attributes.append((column_name, 'NUMERIC'))
+        else:
+            values = dataframe[column_name].unique()
+            attributes.append((column_name, [str(value) for value in values]))
+
+    arff_dict = dict()
+    arff_dict['data'] = dataframe.as_matrix()
+    arff_dict['attributes'] = attributes
+    arff_dict['description'] = description
+    arff_dict['relation'] = relation
+
+    return arff_dict

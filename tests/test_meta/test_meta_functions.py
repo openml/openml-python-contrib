@@ -55,3 +55,6 @@ class TestMetaFunctions(TestBase):
         cs = TestBase._get_random_forest_default_search_space()
 
         self.get_task_flow_results_as_dataframe(task_id, flow_id, num_configs, cs)
+
+    def test_dataframe_to_arff(self):
+        raise NotImplementedError()
