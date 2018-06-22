@@ -1,4 +1,5 @@
 ConfigSpace
 Cython
+matplotlib
 openml
 pandas
