@@ -11,7 +11,8 @@ import sklearn.ensemble
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cache_directory', type=str, default=os.path.expanduser('~') + '/experiments/openml_cache')
-    parser.add_argument('--task_id', type=int, default=3)
+    parser.add_argument('--task_id', type=int, default=None)
+    parser.add_argument('--study_id', type=str, default='OpenML100')
     parser.add_argument('--n_estimators', type=int, default=64)
     parser.add_argument('--num_runs', type=int, default=500)
     parser.add_argument('--evaluation_measure', type=str, default='predictive_accuracy')
@@ -21,7 +22,11 @@ def parse_args():
     parser.add_argument('--n_contour_lines', type=int, default=16)
     parser.add_argument('--output_directory', type=str, default=os.path.expanduser('~') + '/experiments/openml')
 
-    return parser.parse_args()
+    args_ = parser.parse_args()
+    if (args_.task_id is None) == (args_.study_id is None):
+        raise ValueError('Please set task_id XOR study_id')
+
+    return args_
 
 
 def get_flow_and_config_space():
@@ -49,15 +54,12 @@ def get_param_indices(param, resolution, tol=0.00001):
     return space
 
 
-def run():
-    args = parse_args()
+def run(args):
     flow_id, configuration_space = get_flow_and_config_space()
     dataset_name = openml.tasks.get_task(args.task_id).get_dataset().name
     df = openmlcontrib.meta.get_task_flow_results_as_dataframe(args.task_id, flow_id, args.num_runs,
                                                                configuration_space, 'parameter_name',
                                                                args.evaluation_measure, args.cache_directory)
-    # categoricals = [idx for idx, dtype in enumerate(df.dtypes) if not np.issubdtype(dtype, np.number)]
-    # print(categoricals)
     estimator = sklearn.pipeline.Pipeline(steps=[
         ('estimator', sklearn.ensemble.RandomForestRegressor(n_estimators=args.n_estimators))
     ])
@@ -76,7 +78,6 @@ def run():
     for i in range(y_resolution):
         for j in range(x_resolution):
             data_point = [[XX[i, j], YY[i, j]]]
-            # TODO check indices (x / y mixup)
             ZZ[i, j] = estimator.predict(data_point)[0]
 
     fig, axes = plt.subplots(1, 1)
@@ -98,7 +99,16 @@ def run():
         plt.savefig(os.path.join(args.output_directory, 'contourplot-task-%d.png' % args.task_id))
     else:
         plt.show()
+    plt.close()
 
 
 if __name__ == '__main__':
-    run()
+    args_ = parse_args()
+
+    if args_.task_id:
+        run(args_)
+    else:
+        tasks = openml.study.get_study(args_.study_id, 'tasks').tasks
+        for i in tasks:
+            args_.task_id = i
+            run(args_)
