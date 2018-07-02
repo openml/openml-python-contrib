@@ -58,3 +58,6 @@ class TestMetaFunctions(TestBase):
 
     def test_dataframe_to_arff(self):
         raise NotImplementedError()
+
+    def test_arff_to_dataframe(self):
+        raise NotImplementedError()
