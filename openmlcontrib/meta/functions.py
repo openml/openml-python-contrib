@@ -134,10 +134,11 @@ def dataframe_to_arff(dataframe, relation, description):
 
 
 def arff_to_dataframe(liacarff):
+    num_keys = {'numeric', 'real'}
     expected_keys = {'data', 'attributes', 'description', 'relation'}
     if liacarff.keys() != expected_keys:
         raise ValueError('liacarff object does not contain correct keys.')
     data_ = np.array(liacarff['data'])
-    arff_dict = {col_name: pd.Series(data_[:, idx], dtype=np.float64 if col_type == 'NUMERIC' else object) for
-                 idx, (col_name, col_type) in enumerate(liacarff['attributes'])}
+    arff_dict = {col_name: pd.Series(data_[:, idx], dtype=np.float64 if str(col_type).lower() in num_keys else object)
+                 for idx, (col_name, col_type) in enumerate(liacarff['attributes'])}
     return pd.DataFrame(arff_dict)
