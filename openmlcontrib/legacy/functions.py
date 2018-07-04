@@ -3,7 +3,7 @@ import numpy as np
 import typing
 
 
-def _interpret_string(hyperparameter: ConfigSpace.hyperparameters.Hyperparameter) -> bool:
+def interpret_hyperparameter_as_string(hyperparameter: ConfigSpace.hyperparameters.Hyperparameter) -> bool:
     """
     Whether the ConfigSpace hyperparameter values should be interpreted in string format. This happens for categorical
     features (even when the values are all numeric) and sometimes for UnParameterized or Constants.
@@ -48,7 +48,8 @@ def get_active_hyperparameters(configuration_space: ConfigSpace.ConfigurationSpa
     for hyperparameter in configuration_space.get_hyperparameters():
         name = hyperparameter.name
         # note that the openml-python json sometimes accidentally mistakes strings for bools or numeric values
-        value_to_search = str(key_values[name]) if _interpret_string(hyperparameter) else key_values[name]
+        value_to_search = str(key_values[name]) if interpret_hyperparameter_as_string(hyperparameter) \
+            else key_values[name]
         value = hyperparameter._inverse_transform(value_to_search)
         vector[configuration_space._hyperparameter_idx[name]] = value
     active_parameters = set()

@@ -1,1 +1,1 @@
-from .functions import get_active_hyperparameters, interpret_string
+from .functions import get_active_hyperparameters, interpret_hyperparameter_as_string
