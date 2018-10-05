@@ -9,7 +9,7 @@ import os
 import typing
 
 
-def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int,
+def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int, raise_few_runs: bool,
                                        configuration_space: ConfigSpace.ConfigurationSpace, parameter_field: str,
                                        evaluation_measure: str, cache_directory: typing.Union[str, None]):
     """
@@ -32,6 +32,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         Evaluation measure to obtain
     cache_directory: str or None
         Directory where cache files can be stored to or obtained from
+    raise_few_runs: bool
+        Raises an error if not enough runs are found according to the `num_runs` argument
 
     Returns
     -------
@@ -52,9 +54,9 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         # downloads (and caches, if allowed) num_runs random evaluations
         evaluations = openml.evaluations.list_evaluations(evaluation_measure,
                                                           size=num_runs, task=[task_id], flow=[flow_id])
-        if len(evaluations) < num_runs:
+        if len(evaluations) < num_runs and raise_few_runs:
             raise ValueError('Not enough evaluations. Required: %d, Got: %d' % (num_runs, len(evaluations)))
-        if cache_directory is not None:
+        if cache_directory is not None and len(evaluations) == num_runs:
             with open(evaluations_cache_path, 'wb') as fp:
                 pickle.dump(evaluations, fp)
     else:

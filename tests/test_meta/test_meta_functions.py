@@ -11,6 +11,7 @@ class TestMetaFunctions(TestBase):
 
     def get_task_flow_results_as_dataframe(self, task_id, flow_id, num_configs, config_space):
         df = openmlcontrib.meta.get_task_flow_results_as_dataframe(task_id, flow_id, num_configs,
+                                                                   raise_few_runs=True,
                                                                    configuration_space=config_space,
                                                                    parameter_field='parameter_name',
                                                                    evaluation_measure='predictive_accuracy',
@@ -38,6 +39,7 @@ class TestMetaFunctions(TestBase):
 
     def test_get_task_flow_results_as_dataframe_svm(self):
         openml.config.server = 'https://www.openml.org/api/v1/'
+        openml.config.apikey = None
 
         task_id = 59
         flow_id = 7707
@@ -48,6 +50,7 @@ class TestMetaFunctions(TestBase):
 
     def test_get_task_flow_results_as_dataframe_rf(self):
         openml.config.server = 'https://www.openml.org/api/v1/'
+        openml.config.apikey = None
 
         task_id = 3
         flow_id = 6969
