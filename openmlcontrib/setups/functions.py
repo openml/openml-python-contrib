@@ -112,7 +112,8 @@ def obtain_setups_by_ids(setup_ids, require_all=True, limit=250):
 
 
 def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
-                            parameter_field: str,
+                            flow: openml.flows.OpenMLFlow,
+                            map_library_names: bool,
                             configuration_space: ConfigSpace.ConfigurationSpace):
     """
     Transforms a setup into a dict, containing the relevant parameters as key / value pair
@@ -122,9 +123,11 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
     setup : OpenMLSetup
         the OpenML setup object
 
-    parameter_field : str
-        the key field in the parameter object that should be selected. Use full_name in order to avoid collisions; a
-        good alternative is the use of parameter_name
+    flow : OpenMLFlow
+        the OpenML flow object. Should correspond to the setup
+
+    map_library_names : bool
+        whether to map the hyperparameter name to the libraries unique name (True) or OpenMLs unique name (False)
 
     configuration_space : ConfigurationSpace
         Configuration Space (used for determining relevant parameters and dependencies)
@@ -136,7 +139,10 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
     """
     hyperparameter_values = dict()
     for pid, hyperparameter in setup.parameters.items():
-        name = getattr(hyperparameter, parameter_field)
+        if map_library_names:
+            name = openml.setups.openml_param_name_to_sklearn(hyperparameter, flow)
+        else:
+            name = hyperparameter.fullName
         value = hyperparameter.value
         if name not in configuration_space.get_hyperparameter_names():
             continue
@@ -154,7 +160,9 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
     if len(missing_parameters) > 0:
         raise ValueError('Setup %d does not comply to relevant parameters set. Missing: %s' % (setup.setup_id,
                                                                                                str(missing_parameters)))
-    active_parameters = openmlcontrib.legacy.get_active_hyperparameters(configuration_space, hyperparameter_values)
+    config_to_check = ConfigSpace.Configuration(configuration_space, hyperparameter_values,
+                                                allow_inactive_with_values=True)
+    active_parameters = configuration_space.get_active_hyperparameters(config_to_check)
 
     for hyperparameter in set(hyperparameter_values.keys()):
         if hyperparameter not in active_parameters:
@@ -163,7 +171,7 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
     return hyperparameter_values
 
 
-def setup_in_config_space(setup, config_space):
+def setup_in_config_space(setup, flow, config_space):
     """
     Checks whether a given setup is within the boundaries of a config space
 
@@ -172,6 +180,9 @@ def setup_in_config_space(setup, config_space):
     setup : OpenMLSetup
         the setup object
 
+    flow : OpenMLFlow
+        the OpenML flow object
+
     config_space : ConfigurationSpace
         The configuration space
 
@@ -179,8 +190,16 @@ def setup_in_config_space(setup, config_space):
     -------
     Whether this setup is within the boundaries of a config space
     """
+    # flow / setup ID checks are not super important, but nice as it doesn't add much overhead
+    if flow.flow_id is None:
+        raise ValueError('Flow does not contain an ID (please only use flows obtained from server)')
+    if flow.flow_id != setup.flow_id:
+        raise ValueError('Flow id does not correspond. Setup has %d, flow has %d' % (setup.flow_id, flow.flow_id))
     try:
-        name_values = setup_to_parameter_dict(setup, 'parameter_name', config_space)
+        name_values = setup_to_parameter_dict(setup=setup,
+                                              flow=flow,
+                                              map_library_names=True,
+                                              configuration_space=config_space)
         ConfigSpace.Configuration(config_space, name_values)
         return True
     except ValueError:
@@ -188,6 +207,7 @@ def setup_in_config_space(setup, config_space):
 
 
 def filter_setup_list_by_config_space(setups: typing.Dict[int, openml.setups.OpenMLSetup],
+                                      flow: openml.flows.OpenMLFlow,
                                       config_space: ConfigSpace.ConfigurationSpace):
     """
     Removes all setups that do not comply to the config space
@@ -209,6 +229,6 @@ def filter_setup_list_by_config_space(setups: typing.Dict[int, openml.setups.Ope
 
     setups_remain = {}
     for sid, setup in setups.items():
-        if setup_in_config_space(setup, config_space):
+        if setup_in_config_space(setup, flow, config_space):
             setups_remain[sid] = setup
     return setups_remain

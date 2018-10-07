@@ -70,8 +70,10 @@ class TestSetupFunctions(TestBase):
         for setup_file in os.listdir('../data/setups'):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
+            with open('../data/flows/%d.pkl' % setup.flow_id, 'rb') as fp:
+                flow = pickle.load(fp)
 
-            self.assertTrue(openmlcontrib.setups.setup_in_config_space(setup, cs))
+            self.assertTrue(openmlcontrib.setups.setup_in_config_space(setup, flow, cs))
 
     def test_filter_setup_list_by_config_space(self):
         cs = TestBase._get_libsvm_svc_config_space()
@@ -81,8 +83,12 @@ class TestSetupFunctions(TestBase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
             setups[setup.setup_id] = setup
+        # all flow ids are supposed to be the same
+        with open('../data/flows/%d.pkl' % setup.flow_id, 'rb') as fp:
+            flow = pickle.load(fp)
+
         self.assertEqual(len(setups), 20)
-        setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, cs)
+        setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, flow, cs)
         self.assertEqual(len(setups), len(setups_filtered))
 
     def test_filter_setup_list_by_config_space_fails(self):
@@ -96,8 +102,11 @@ class TestSetupFunctions(TestBase):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
             setups[setup.setup_id] = setup
+        # all flow ids are supposed to be the same
+        with open('../data/flows/%d.pkl' % setup.flow_id, 'rb') as fp:
+            flow = pickle.load(fp)
         self.assertEqual(len(setups), 20)
-        setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, cs)
+        setups_filtered = openmlcontrib.setups.filter_setup_list_by_config_space(setups, flow, cs)
         self.assertEqual(len(setups_filtered), 0)
 
     def test_setup_in_configuration_space_illegal_value(self):
@@ -108,8 +117,10 @@ class TestSetupFunctions(TestBase):
         for setup_file in os.listdir('../data/setups'):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
+            with open('../data/flows/%d.pkl' % setup.flow_id, 'rb') as fp:
+                flow = pickle.load(fp)
 
-            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
+            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, flow, cs))
 
     def test_setup_in_configuration_space_param_not_present(self):
         degree = ConfigSpace.UniformIntegerHyperparameter("test123", -20, 20, default_value=-3)
@@ -119,20 +130,20 @@ class TestSetupFunctions(TestBase):
         for setup_file in os.listdir('../data/setups'):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
+            with open('../data/flows/%d.pkl' % setup.flow_id, 'rb') as fp:
+                flow = pickle.load(fp)
 
-            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, cs))
+            self.assertFalse(openmlcontrib.setups.setup_in_config_space(setup, flow, cs))
     
     def test_setup_to_parameter_dict(self):
-        expected_active_parameters = {
-            'poly': {'C', 'kernel', 'degree', 'gamma', 'coef0', 'tol', 'shrinking', 'max_iter', 'strategy'},
-            'rbf': {'C', 'kernel', 'gamma', 'tol', 'shrinking', 'max_iter', 'strategy'},
-            'sigmoid': {'C', 'kernel', 'gamma', 'coef0', 'tol', 'shrinking', 'max_iter', 'strategy'},
-        }
+        expected_active_parameters = TestBase._libsvm_expected_active_hyperparameters()
         cs = TestBase._get_libsvm_svc_config_space()
 
         for setup_file in os.listdir('../data/setups'):
             with open(os.path.join('../data/setups', setup_file), 'rb') as fp:
                 setup = pickle.load(fp)
-            result = openmlcontrib.setups.setup_to_parameter_dict(setup, 'parameter_name', cs)
+            with open('../data/flows/%d.pkl' % setup.flow_id, 'rb') as fp:
+                flow = pickle.load(fp)
+            result = openmlcontrib.setups.setup_to_parameter_dict(setup, flow, True, cs)
 
-            self.assertEqual(expected_active_parameters[result['kernel']], set(result.keys()))
+            self.assertEqual(expected_active_parameters[result['classifier__kernel']], set(result.keys()))

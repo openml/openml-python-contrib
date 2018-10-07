@@ -81,6 +81,13 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         with open(setups_cache_path, 'rb') as fp:
             setups = pickle.load(fp)
 
+    # download flows
+    flows = dict()
+    for setup in setups.values():
+        flows[setup.flow_id] = openml.flows.get_flow(setup.flow_id)
+    if len(flows) != 1:
+        raise ValueError('Expected exactly one flow. Got %d' % len(flows))
+
     relevant_parameters = configuration_space.get_hyperparameter_names()
     all_columns = list(relevant_parameters)
     all_columns.append('y')
@@ -88,10 +95,11 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
 
     for run_id, evaluation in evaluations.items():
         current_setup = setups[evaluation.setup_id]
-        if openmlcontrib.setups.setup_in_config_space(current_setup, configuration_space):
-            current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(current_setup,
-                                                                                 parameter_field,
-                                                                                 configuration_space)
+        if openmlcontrib.setups.setup_in_config_space(current_setup, flows[current_setup.flow_id], configuration_space):
+            current_setup_as_dict = openmlcontrib.setups.setup_to_parameter_dict(setup=current_setup,
+                                                                                 flow=flows[current_setup.flow_id],
+                                                                                 map_library_names=True,
+                                                                                 configuration_space=configuration_space)
             current_setup_as_dict['y'] = evaluation.value
             dataframe = dataframe.append(current_setup_as_dict, ignore_index=True)
         else:
@@ -126,7 +134,7 @@ def dataframe_to_arff(dataframe, relation, description):
             attributes.append((column_name, [str(value) for value in values]))
 
     arff_dict = dict()
-    arff_dict['data'] = dataframe.as_matrix()
+    arff_dict['data'] = dataframe.values
     arff_dict['attributes'] = attributes
     arff_dict['description'] = description
     arff_dict['relation'] = relation
