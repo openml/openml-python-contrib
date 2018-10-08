@@ -64,6 +64,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
         # obtains the evaluations from cache
         with open(evaluations_cache_path, 'rb') as fp:
             evaluations = pickle.load(fp)
+    if len(evaluations) == 0:
+        raise ValueError('No results on Task %d according to these criteria' % task_id)
 
     if cache_directory is None or not os.path.isfile(setups_cache_path):
         # downloads (and caches, if allowed) the setups that belong to the evaluations
@@ -84,7 +86,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int, num_runs: int
     # download flows
     flows = dict()
     for setup in setups.values():
-        flows[setup.flow_id] = openml.flows.get_flow(setup.flow_id)
+        if flow_id not in flows:
+            flows[setup.flow_id] = openml.flows.get_flow(setup.flow_id)
     if len(flows) != 1:
         raise ValueError('Expected exactly one flow. Got %d' % len(flows))
 

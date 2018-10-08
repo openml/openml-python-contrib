@@ -92,6 +92,8 @@ def obtain_setups_by_ids(setup_ids, require_all=True, limit=250):
     for val in setup_ids:
         if not isinstance(val, int):
             raise ValueError()
+    if len(setup_ids) == 0:
+        raise ValueError('Please give at least one setup id.')
 
     setups = {}
     offset = 0
