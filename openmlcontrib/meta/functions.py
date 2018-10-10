@@ -332,8 +332,8 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
     """
     setup_data_all = None
     scaler = sklearn.preprocessing.MinMaxScaler()
-    for task_id in task_ids:
-        logging.info('Currently processing task %d' % task_id)
+    for idx, task_id in enumerate(task_ids):
+        logging.info('Currently processing task %d (%d/%d)' % (task_id, idx+1, len(task_ids)))
         try:
             if per_fold:
                 setup_data = get_task_flow_results_per_fold_as_dataframe(task_id=task_id,
@@ -350,6 +350,9 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
                                                                 configuration_space=configuration_space,
                                                                 evaluation_measures=evaluation_measures,
                                                                 cache_directory=cache_directory)
+        except openml.exceptions.OpenMLServerException as e:
+            logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
+            continue
         except ValueError as e:
             logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
             continue
