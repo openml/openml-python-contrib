@@ -1,11 +1,13 @@
 import ConfigSpace
 import ConfigSpace.hyperparameters
+import logging
 import numpy as np
 import openml
 import openmlcontrib
+import os
 import pandas as pd
 import pickle
-import os
+import sklearn
 import typing
 import warnings
 
@@ -195,10 +197,10 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
     return df
 
 
-def get_task_flow_result_per_fold_as_dataframe(task_id: int, flow_id: int,
-                                               num_runs: int, raise_few_runs: bool,
-                                               configuration_space: ConfigSpace.ConfigurationSpace,
-                                               evaluation_measures: typing.List[str]) -> pd.DataFrame:
+def get_task_flow_results_per_fold_as_dataframe(task_id: int, flow_id: int,
+                                                num_runs: int, raise_few_runs: bool,
+                                                configuration_space: ConfigSpace.ConfigurationSpace,
+                                                evaluation_measures: typing.List[str]) -> pd.DataFrame:
     """
     Obtains a number of runs from a given flow on a given task, and returns a
     (relevant) set of parameters and performance measures. Because the per-fold
@@ -247,6 +249,9 @@ def get_task_flow_result_per_fold_as_dataframe(task_id: int, flow_id: int,
 
     # obtain all runs
     runs = openml.runs.list_runs(size=num_runs, task=[task_id], flow=[flow_id])
+    if len(runs) < num_runs and raise_few_runs:
+        raise ValueError('Not enough evaluations. Required: %d, '
+                         'Got: %d' % (num_runs, len(runs)))
     all_records = list()
     for run_dict in runs.values():
         setup = openml.setups.get_setup(run_dict['setup_id'])
@@ -277,6 +282,86 @@ def get_task_flow_result_per_fold_as_dataframe(task_id: int, flow_id: int,
     all_columns = list(relevant_parameters) + evaluation_measures + ['repeat_nr', 'fold_nr']
     df = pd.DataFrame(columns=all_columns, data=all_records)
     return df
+
+
+def get_task_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
+                                 num_runs: int, per_fold: bool, raise_few_runs: bool,
+                                 configuration_space: ConfigSpace.ConfigurationSpace,
+                                 evaluation_measures: typing.List[str],
+                                 normalize: bool,
+                                 cache_directory: str) -> pd.DataFrame:
+    """
+    Obtains a number of runs from a given flow on a set of tasks, and returns a
+    (relevant) set of parameters and performance measures. As backend, it uses
+    either `get_task_flow_results_as_dataframe` (fast, one result per run) or
+    `get_task_flow_results_perfold_as_dataframe` (slow, but results per fold).
+
+    Parameters
+    ----------
+    task_ids: List[int]
+        The task ids
+    flow_id:
+        The flow id
+    num_runs: int
+        Maximum on the number of runs per task
+    per_fold: bool
+        Whether to obtain all results per repeat and per fold (slower)
+    raise_few_runs: bool
+        Raises an error if not enough runs are found according to the
+        `num_runs` argument
+    configuration_space: ConfigurationSpace
+        Determines valid parameters and ranges. These will be returned as
+        column names
+    evaluation_measures: List[str]
+        A list with the evaluation measure to obtain
+    normalize: bool
+        Whether to normalize the measures per task to interval [0,1]
+    cache_directory: optional, str
+        Directory where cache files can be stored to or obtained from. Only
+        relevant when per_fold is True
+
+    Returns
+    -------
+    df : pd.DataFrame
+        a dataframe with as columns the union of the config_space
+        hyperparameters and the evaluation measures, and num_runs rows.
+    """
+    setup_data_all = None
+    scaler = sklearn.preprocessing.MinMaxScaler()
+    for task_id in task_ids:
+        logging.info('Currently processing task %d' % task_id)
+        try:
+            if per_fold:
+                setup_data = get_task_flow_results_as_dataframe(task_id=task_id,
+                                                                flow_id=flow_id,
+                                                                num_runs=num_runs,
+                                                                raise_few_runs=False,
+                                                                configuration_space=configuration_space,
+                                                                evaluation_measures=evaluation_measures,
+                                                                cache_directory=cache_directory)
+
+            else:
+                setup_data = get_task_flow_results_per_fold_as_dataframe(task_id=task_id,
+                                                                         flow_id=flow_id,
+                                                                         num_runs=num_runs,
+                                                                         raise_few_runs=False,
+                                                                         configuration_space=configuration_space,
+                                                                         evaluation_measures=evaluation_measures)
+        except ValueError as e:
+            warnings.warn('Problem in Task %d: %s' % (task_id, str(e)))
+            continue
+        setup_data['task_id'] = task_id
+        if setup_data_all is None:
+            setup_data_all = setup_data
+        else:
+            if list(setup_data.columns.values) != list(setup_data_all.columns.values):
+                raise ValueError('Columns per task result do not match')
+            if normalize:
+                for measure in evaluation_measures:
+                    setup_data[[measure]] = scaler.fit_transform(setup_data[[measure]])
+
+            setup_data_all = pd.concat((setup_data_all, setup_data))
+    return setup_data_all
 
 
 def dataframe_to_arff(dataframe, relation, description):

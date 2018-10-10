@@ -32,7 +32,7 @@ class TestMetaFunctions(TestBase):
             n_columns = len(config_space.get_hyperparameter_names()) + len(measures)
             n_observations = num_configs
         else:
-            df = openmlcontrib.meta.get_task_flow_result_per_fold_as_dataframe(
+            df = openmlcontrib.meta.get_task_flow_results_per_fold_as_dataframe(
                 task_id, flow_id, num_configs, raise_few_runs=True, configuration_space=config_space,
                 evaluation_measures=measures)
             n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 2
