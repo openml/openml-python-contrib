@@ -47,8 +47,6 @@ def filter_setup_list(setupid_setup, param_name, min=None, max=None, allowed_val
             raise ValueError('Setup %d does not contain param %s' %(setupid, param_name))
         param_value = json.loads(setup.parameters[paramname_id[param_name]].value)
 
-        # print(param_value, min, max, allowed_values)
-
         if min is not None:
             if param_value < min:
                 continue
@@ -154,9 +152,6 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
             # when this happens, we need to fix
             raise KeyError('Duplicate hyperparameter: %s' % name)
         hyperparameter_values[name] = json.loads(value)
-        # make sure that categorical hyperparameters do not get mistaken for bools, int, etc
-        if openmlcontrib.legacy.interpret_hyperparameter_as_string(configuration_space.get_hyperparameter(name)):
-            hyperparameter_values[name] = str(hyperparameter_values[name])
 
     missing_parameters = set(configuration_space.get_hyperparameter_names()) - hyperparameter_values.keys()
     if len(missing_parameters) > 0:
