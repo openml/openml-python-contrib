@@ -9,6 +9,10 @@ from openmlcontrib.testing import TestBase
 
 class TestMetaFunctions(TestBase):
 
+    def setUp(self):
+        openml.config.server = 'https://www.openml.org/api/v1/'
+        openml.config.apikey = None
+
     @staticmethod
     def is_integer_hyperparameter(hyperparameter):
         if isinstance(hyperparameter, ConfigSpace.hyperparameters.UniformIntegerHyperparameter):
@@ -20,6 +24,32 @@ class TestMetaFunctions(TestBase):
                 and isinstance(hyperparameter.value, int):
             return True
         return False
+
+    def get_tasks_results_as_dataframe(self, task_ids, flow_id, num_configs, num_folds, measures, config_space):
+        if num_folds is None:
+            df = openmlcontrib.meta.get_tasks_result_as_dataframe(task_ids, flow_id, num_configs,
+                                                                  per_fold=False,
+                                                                  raise_few_runs=True,
+                                                                  configuration_space=config_space,
+                                                                  evaluation_measures=measures,
+                                                                  cache_directory=None, normalize=False)
+
+            n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 1  # adds task
+            n_observations = num_configs * len(task_ids)
+        else:
+            df = openmlcontrib.meta.get_tasks_result_as_dataframe(task_ids, flow_id, num_configs,
+                                                                  per_fold=True,
+                                                                  raise_few_runs=True,
+                                                                  configuration_space=config_space,
+                                                                  evaluation_measures=measures,
+                                                                  cache_directory=None, normalize=False)
+            n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 3  # adds repeat, fold, task
+            n_observations = num_configs * num_folds * len(task_ids)
+
+        self.assertEqual(type(df), pd.DataFrame)
+        self.assertEqual(df.shape, (n_observations, n_columns))
+
+        # TODO: extend tests
 
     def get_task_flow_results_as_dataframe(self, task_id, flow_id, num_configs, num_folds, measures, config_space):
         if num_folds is None:
@@ -78,9 +108,6 @@ class TestMetaFunctions(TestBase):
         pd.testing.assert_frame_equal(df, df_reproduced)
 
     def test_get_task_flow_results_as_dataframe_svm(self):
-        openml.config.server = 'https://www.openml.org/api/v1/'
-        openml.config.apikey = None
-
         task_id = 59
         num_folds = 10
         flow_id = 7707
@@ -103,9 +130,6 @@ class TestMetaFunctions(TestBase):
                                                 config_space=cs)
 
     def test_get_task_flow_results_as_dataframe_rf(self):
-        openml.config.server = 'https://www.openml.org/api/v1/'
-        openml.config.apikey = None
-
         task_id = 3
         num_folds = 10
         flow_id = 6969
@@ -136,3 +160,35 @@ class TestMetaFunctions(TestBase):
                                                 num_folds=num_folds,
                                                 measures=measures_perfold,
                                                 config_space=cs)
+
+    def test_get_task_result_as_dataframe(self):
+        task_ids = [3, 6, 20]
+        num_folds = 10
+        flow_id = 6969
+        num_configs_global = 50
+        num_configs_perfold = 10
+        cs = TestBase._get_random_forest_default_search_space()
+        measures_global = [
+            'predictive_accuracy',
+            'f_measure',
+            'area_under_roc_curve'
+        ]
+        measures_perfold = [
+            'predictive_accuracy',
+            'usercpu_time_millis',
+            'usercpu_time_millis_training',
+            'usercpu_time_millis_testing'
+        ]
+
+        self.get_tasks_results_as_dataframe(task_ids=task_ids,
+                                            flow_id=flow_id,
+                                            num_configs=num_configs_global,
+                                            num_folds=None,  # invoke test on global frame
+                                            measures=measures_global,
+                                            config_space=cs)
+        self.get_tasks_results_as_dataframe(task_ids=task_ids,
+                                            flow_id=flow_id,
+                                            num_configs=num_configs_perfold,
+                                            num_folds=num_folds,
+                                            measures=measures_perfold,
+                                            config_space=cs)

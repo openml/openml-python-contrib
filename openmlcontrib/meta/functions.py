@@ -9,7 +9,6 @@ import pandas as pd
 import pickle
 import sklearn
 import typing
-import warnings
 
 
 def _merge_setup_dict_and_evaluation_dicts(
@@ -175,7 +174,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
                                                       configuration_space):
             df = df.append(setup_merged, ignore_index=True)
         else:
-            warnings.warn('Setup does not comply to configuration space: %s ' % setup_id)
+            logging.warning('Setup does not comply to configuration space: %s ' % setup_id)
 
     all_numeric_columns = list(evaluation_measures)
     for param in configuration_space.get_hyperparameters():
@@ -252,20 +251,25 @@ def get_task_flow_results_per_fold_as_dataframe(task_id: int, flow_id: int,
     if len(runs) < num_runs and raise_few_runs:
         raise ValueError('Not enough evaluations. Required: %d, '
                          'Got: %d' % (num_runs, len(runs)))
+    flows = dict()
     all_records = list()
     for run_dict in runs.values():
         setup = openml.setups.get_setup(run_dict['setup_id'])
-        flow = openml.flows.get_flow(setup.flow_id)
+        if setup.flow_id not in flows:
+            flows[setup.flow_id] = openml.flows.get_flow(setup.flow_id)
+            if len(flows) != 1:
+                # This should never happen.
+                raise ValueError('Expected exactly one flow. Got %d' % len(flows))
         if openmlcontrib.setups.setup_in_config_space(setup,
-                                                      flow,
+                                                      flows[setup.flow_id],
                                                       configuration_space):
             setup = openmlcontrib.setups.setup_to_parameter_dict(setup=setup,
-                                                                 flow=flow,
+                                                                 flow=flows[setup.flow_id],
                                                                  map_library_names=True,
                                                                  configuration_space=configuration_space)
             run = openml.runs.get_run(run_dict['run_id'])
             if run.fold_evaluations is None or len(run.fold_evaluations) == 0:
-                warnings.warn('Skipping run that is not processed yet: %d' % run.run_id)
+                logging.warning('Skipping run that is not processed yet: %d' % run.run_id)
                 continue
 
             for repeat_nr in range(repeats):
@@ -284,12 +288,12 @@ def get_task_flow_results_per_fold_as_dataframe(task_id: int, flow_id: int,
     return df
 
 
-def get_task_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
-                                 num_runs: int, per_fold: bool, raise_few_runs: bool,
-                                 configuration_space: ConfigSpace.ConfigurationSpace,
-                                 evaluation_measures: typing.List[str],
-                                 normalize: bool,
-                                 cache_directory: str) -> pd.DataFrame:
+def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
+                                  num_runs: int, per_fold: bool, raise_few_runs: bool,
+                                  configuration_space: ConfigSpace.ConfigurationSpace,
+                                  evaluation_measures: typing.List[str],
+                                  normalize: bool,
+                                  cache_directory: typing.Optional[str]) -> pd.DataFrame:
     """
     Obtains a number of runs from a given flow on a set of tasks, and returns a
     (relevant) set of parameters and performance measures. As backend, it uses
@@ -332,35 +336,35 @@ def get_task_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
         logging.info('Currently processing task %d' % task_id)
         try:
             if per_fold:
-                setup_data = get_task_flow_results_as_dataframe(task_id=task_id,
-                                                                flow_id=flow_id,
-                                                                num_runs=num_runs,
-                                                                raise_few_runs=False,
-                                                                configuration_space=configuration_space,
-                                                                evaluation_measures=evaluation_measures,
-                                                                cache_directory=cache_directory)
-
-            else:
                 setup_data = get_task_flow_results_per_fold_as_dataframe(task_id=task_id,
                                                                          flow_id=flow_id,
                                                                          num_runs=num_runs,
-                                                                         raise_few_runs=False,
+                                                                         raise_few_runs=raise_few_runs,
                                                                          configuration_space=configuration_space,
                                                                          evaluation_measures=evaluation_measures)
+            else:
+                setup_data = get_task_flow_results_as_dataframe(task_id=task_id,
+                                                                flow_id=flow_id,
+                                                                num_runs=num_runs,
+                                                                raise_few_runs=raise_few_runs,
+                                                                configuration_space=configuration_space,
+                                                                evaluation_measures=evaluation_measures,
+                                                                cache_directory=cache_directory)
         except ValueError as e:
-            warnings.warn('Problem in Task %d: %s' % (task_id, str(e)))
+            logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
             continue
         setup_data['task_id'] = task_id
+        if normalize:
+            for measure in evaluation_measures:
+                setup_data[[measure]] = scaler.fit_transform(setup_data[[measure]])
         if setup_data_all is None:
             setup_data_all = setup_data
         else:
             if list(setup_data.columns.values) != list(setup_data_all.columns.values):
                 raise ValueError('Columns per task result do not match')
-            if normalize:
-                for measure in evaluation_measures:
-                    setup_data[[measure]] = scaler.fit_transform(setup_data[[measure]])
-
             setup_data_all = pd.concat((setup_data_all, setup_data))
+    if setup_data_all is None:
+        raise ValueError('Results for None of the tasks obtained successfully')
     return setup_data_all
 
 
