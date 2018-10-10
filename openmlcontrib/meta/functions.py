@@ -190,6 +190,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
     if df.shape[1] != exp_params:
         # this should never happen
         raise ValueError('Wrong number of attributes. Expected %d got %d' % (exp_params, df.shape[1]))
+    if df.shape[0] == 0:
+        raise ValueError('Did not obtain any results for task %d' % task_id)
 
     df = df.reindex(sorted(df.columns), axis=1)
 
@@ -280,6 +282,10 @@ def get_task_flow_results_per_fold_as_dataframe(task_id: int, flow_id: int,
                     for measure in evaluation_measures:
                         current_record[measure] = run.fold_evaluations[measure][repeat_nr][fold_nr]
                     all_records.append(current_record)
+        else:
+            logging.warning('Setup does not comply to configuration space: %s ' % setup.setup_id)
+    if len(all_records) == 0:
+        raise ValueError('Did not obtain any results for task %d' % task_id)
 
     # initiates the dataframe object
     relevant_parameters = configuration_space.get_hyperparameter_names()
@@ -357,6 +363,7 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
             logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
             continue
         setup_data['task_id'] = task_id
+        logging.info('Obtained result frame with dimensions %s' % str(setup_data.shape))
         if normalize:
             for measure in evaluation_measures:
                 setup_data[[measure]] = scaler.fit_transform(setup_data[[measure]])
