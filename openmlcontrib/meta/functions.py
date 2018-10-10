@@ -58,7 +58,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
                                        cache_directory: typing.Union[str, None]) -> pd.DataFrame:
     """
     Obtains a number of runs from a given flow on a given task, and returns a
-    (relevant) set of parameters
+    (relevant) set of parameters and performance measures. Makes solely use of
+    listing functions.
 
     Parameters
     ----------
@@ -154,9 +155,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
 
     # initiates the dataframe object
     relevant_parameters = configuration_space.get_hyperparameter_names()
-    all_columns = list(relevant_parameters)
-    for measure in evaluation_measures:
-        all_columns.append(measure)
+    all_columns = list(relevant_parameters) + evaluation_measures
     df = pd.DataFrame(columns=all_columns)
 
     # initiates all records. Note that we need to check them one by one before
@@ -193,6 +192,90 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
 
     df = df.reindex(sorted(df.columns), axis=1)
 
+    return df
+
+
+def get_task_flow_result_per_fold_as_dataframe(task_id: int, flow_id: int,
+                                               num_runs: int, raise_few_runs: bool,
+                                               configuration_space: ConfigSpace.ConfigurationSpace,
+                                               evaluation_measures: typing.List[str]) -> pd.DataFrame:
+    """
+    Obtains a number of runs from a given flow on a given task, and returns a
+    (relevant) set of parameters and performance measures. Because the per-fold
+    performance information is not available in the listing functions, it is
+    slower than the `openmlcontrib.meta.get_task_flow_results_as_dataframe`,
+    however it can rely on openml-pythons native cache mechanism.
+
+    Parameters
+    ----------
+    task_id: int
+        The task id
+    flow_id:
+        The flow id
+    num_runs: int
+        Maximum on the number of runs per task
+    configuration_space: ConfigurationSpace
+        Determines valid parameters and ranges. These will be returned as
+        column names
+    evaluation_measures: List[str]
+        A list with the evaluation measure to obtain
+    raise_few_runs: bool
+        Raises an error if not enough runs are found according to the
+        `num_runs` argument
+
+    Returns
+    -------
+    df : pd.DataFrame
+        a dataframe with as columns the union of the config_space
+        hyperparameters and the evaluation measures, and num_runs rows.
+    """
+    for measure in evaluation_measures:
+        if measure in configuration_space.get_hyperparameters():
+            raise ValueError('measure shadows name in hyperparameter list: %s' % measure)
+
+    # book keeping for task parameters (num_repeats and num_folds)
+    task = openml.tasks.get_task(task_id)
+    repeats = int(task.estimation_procedure['parameters']['number_repeats']) \
+        if 'number_repeats' in task.estimation_procedure['parameters'] else 1
+    folds = int(task.estimation_procedure['parameters']['number_folds']) \
+        if 'number_folds' in task.estimation_procedure['parameters'] else 1
+
+    if repeats * folds <= 1:
+        raise ValueError('Can only obtain per fold frame if the task defines '
+                         'multiple repeats or folds. Instead, you are adviced '
+                         'to use get_task_flow_results_as_dataframe().')
+
+    # obtain all runs
+    runs = openml.runs.list_runs(size=num_runs, task=[task_id], flow=[flow_id])
+    all_records = list()
+    for run_dict in runs.values():
+        setup = openml.setups.get_setup(run_dict['setup_id'])
+        flow = openml.flows.get_flow(setup.flow_id)
+        if openmlcontrib.setups.setup_in_config_space(setup,
+                                                      flow,
+                                                      configuration_space):
+            setup = openmlcontrib.setups.setup_to_parameter_dict(setup=setup,
+                                                                 flow=flow,
+                                                                 map_library_names=True,
+                                                                 configuration_space=configuration_space)
+            run = openml.runs.get_run(run_dict['run_id'])
+            if run.fold_evaluations is None or len(run.fold_evaluations) == 0:
+                warnings.warn('Skipping run that is not processed yet: %d' % run.run_id)
+                continue
+
+            for repeat_nr in range(repeats):
+                for fold_nr in range(folds):
+                    current_record = dict(setup)
+                    current_record['repeat_nr'] = repeat_nr
+                    current_record['fold_nr'] = fold_nr
+                    for measure in evaluation_measures:
+                        current_record[measure] = run.fold_evaluations[measure][repeat_nr][fold_nr]
+                    all_records.append(current_record)
+
+    # initiates the dataframe object
+    relevant_parameters = configuration_space.get_hyperparameter_names()
+    all_columns = list(relevant_parameters) + evaluation_measures + ['repeat_nr', 'fold_nr']
+    df = pd.DataFrame(columns=all_columns, data=all_records)
     return df
 
 
