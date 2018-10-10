@@ -9,6 +9,8 @@ from openmlcontrib.testing import TestBase
 class TestLegacyFunctions(TestBase):
     
     def test_get_active_hyperparameters(self):
+        # This function used to be part of the legacy library, but since
+        # automl/ConfigSpace:#85 integrated in ConfigSpace
         expected_active_parameters = TestBase._libsvm_expected_active_hyperparameters()
         cs = TestBase._get_libsvm_svc_config_space()
 

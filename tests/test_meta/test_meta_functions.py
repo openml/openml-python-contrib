@@ -25,7 +25,44 @@ class TestMetaFunctions(TestBase):
             return True
         return False
 
-    def get_tasks_results_as_dataframe(self, task_ids, flow_id, num_configs, num_folds, measures, config_space):
+    @staticmethod
+    def is_boolean_hyperparameter(hyperparameter):
+        if isinstance(hyperparameter, ConfigSpace.hyperparameters.CategoricalHyperparameter) \
+                and set(hyperparameter.choices) == {True, False}:
+            return True
+        if isinstance(hyperparameter, ConfigSpace.hyperparameters.UnParametrizedHyperparameter) \
+                and isinstance(hyperparameter.value, bool):
+            return True
+        if isinstance(hyperparameter, ConfigSpace.hyperparameters.Constant) \
+                and isinstance(hyperparameter.value, bool):
+            return True
+        return False
+
+    def wrap_tasks_qualities_as_dataframe(self, task_ids, impute_nan_values, drop_nan):
+        df = openmlcontrib.meta.get_tasks_qualities_as_dataframe(task_ids, impute_nan_values, drop_nan)
+
+        self.assertEqual(df.shape[0], len(task_ids))
+
+        # make sure that columns without values are properly imputed
+        # some tasks only contains categorical features, hence it misses features
+        # like `MeanStdDevOfNumericAtts`, `MeanSkewnessOfNumericAtts` and
+        # `MeanMeanOfNumericAtts`. These should still be present (in imputed form)
+        check_meta_features = {
+            'NumberOfInstances', 'NumberOfFeatures', 'NumberOfClasses',
+            'MeanStdDevOfNumericAtts', 'MeanSkewnessOfNumericAtts',
+            'MeanMeansOfNumericAtts'
+        }
+
+        missing = set()
+        for mf in check_meta_features:
+            if mf not in df.columns.values:
+                missing.add(mf)
+        self.assertSetEqual(set(), missing)
+
+        if drop_nan:
+            self.assertFalse(df.isnull().values.any())
+
+    def wrap_tasks_results_as_dataframe(self, task_ids, flow_id, num_configs, num_folds, measures, config_space):
         if num_folds is None:
             df = openmlcontrib.meta.get_tasks_result_as_dataframe(task_ids, flow_id, num_configs,
                                                                   per_fold=False,
@@ -51,7 +88,7 @@ class TestMetaFunctions(TestBase):
 
         # TODO: extend tests
 
-    def get_task_flow_results_as_dataframe(self, task_id, flow_id, num_configs, num_folds, measures, config_space):
+    def wrap_task_flow_results_as_dataframe(self, task_id, flow_id, num_configs, num_folds, measures, config_space):
         if num_folds is None:
             df = openmlcontrib.meta.get_task_flow_results_as_dataframe(task_id, flow_id, num_configs,
                                                                        raise_few_runs=True,
@@ -77,7 +114,7 @@ class TestMetaFunctions(TestBase):
                 self.assertGreater(df[param.name].min(), -1000000)
                 self.assertLessEqual(df[param.name].max(), 1000000)
             elif isinstance(param, ConfigSpace.CategoricalHyperparameter):
-                self.assertIn(df[param.name].dtype, [object])
+                self.assertIn(df[param.name].dtype, [bool, object])
             elif isinstance(param, ConfigSpace.Constant):
                 self.assertIn(df[param.name].dtype, [np.float64, np.int64, object])
             elif isinstance(param, ConfigSpace.UnParametrizedHyperparameter):
@@ -98,6 +135,8 @@ class TestMetaFunctions(TestBase):
             # therefore, we transform integer columns to floats
             if TestMetaFunctions.is_integer_hyperparameter(param):
                 df[param.name] = df[param.name].astype(np.float64)
+            elif TestMetaFunctions.is_boolean_hyperparameter(param):
+                df[param.name] = df[param.name].astype(type(object))
         # also fix repeat nr and fold nr, in case of the per fold result
         for rf in ['repeat_nr', 'fold_nr']:
             if rf in df.columns.values:
@@ -116,18 +155,18 @@ class TestMetaFunctions(TestBase):
         cs = TestBase._get_libsvm_svc_config_space()
         measures = ['predictive_accuracy']
 
-        self.get_task_flow_results_as_dataframe(task_id=task_id,
-                                                flow_id=flow_id,
-                                                num_configs=num_configs_perfold,
-                                                num_folds=num_folds,
-                                                measures=measures,
-                                                config_space=cs)
-        self.get_task_flow_results_as_dataframe(task_id=task_id,
-                                                flow_id=flow_id,
-                                                num_configs=num_configs_global,
-                                                num_folds=None,  # invoke test on global frame
-                                                measures=measures,
-                                                config_space=cs)
+        self.wrap_task_flow_results_as_dataframe(task_id=task_id,
+                                                 flow_id=flow_id,
+                                                 num_configs=num_configs_perfold,
+                                                 num_folds=num_folds,
+                                                 measures=measures,
+                                                 config_space=cs)
+        self.wrap_task_flow_results_as_dataframe(task_id=task_id,
+                                                 flow_id=flow_id,
+                                                 num_configs=num_configs_global,
+                                                 num_folds=None,  # invoke test on global frame
+                                                 measures=measures,
+                                                 config_space=cs)
 
     def test_get_task_flow_results_as_dataframe_rf(self):
         task_id = 3
@@ -148,18 +187,18 @@ class TestMetaFunctions(TestBase):
             'usercpu_time_millis_testing'
         ]
 
-        self.get_task_flow_results_as_dataframe(task_id=task_id,
-                                                flow_id=flow_id,
-                                                num_configs=num_configs_global,
-                                                num_folds=None,  # invoke test on global frame
-                                                measures=measures_global,
-                                                config_space=cs)
-        self.get_task_flow_results_as_dataframe(task_id=task_id,
-                                                flow_id=flow_id,
-                                                num_configs=num_configs_perfold,
-                                                num_folds=num_folds,
-                                                measures=measures_perfold,
-                                                config_space=cs)
+        self.wrap_task_flow_results_as_dataframe(task_id=task_id,
+                                                 flow_id=flow_id,
+                                                 num_configs=num_configs_global,
+                                                 num_folds=None,  # invoke test on global frame
+                                                 measures=measures_global,
+                                                 config_space=cs)
+        self.wrap_task_flow_results_as_dataframe(task_id=task_id,
+                                                 flow_id=flow_id,
+                                                 num_configs=num_configs_perfold,
+                                                 num_folds=num_folds,
+                                                 measures=measures_perfold,
+                                                 config_space=cs)
 
     def test_get_task_result_as_dataframe(self):
         task_ids = [3, 6, 20]
@@ -180,15 +219,20 @@ class TestMetaFunctions(TestBase):
             'usercpu_time_millis_testing'
         ]
 
-        self.get_tasks_results_as_dataframe(task_ids=task_ids,
-                                            flow_id=flow_id,
-                                            num_configs=num_configs_global,
-                                            num_folds=None,  # invoke test on global frame
-                                            measures=measures_global,
-                                            config_space=cs)
-        self.get_tasks_results_as_dataframe(task_ids=task_ids,
-                                            flow_id=flow_id,
-                                            num_configs=num_configs_perfold,
-                                            num_folds=num_folds,
-                                            measures=measures_perfold,
-                                            config_space=cs)
+        self.wrap_tasks_results_as_dataframe(task_ids=task_ids,
+                                             flow_id=flow_id,
+                                             num_configs=num_configs_global,
+                                             num_folds=None,  # invoke test on global frame
+                                             measures=measures_global,
+                                             config_space=cs)
+        self.wrap_tasks_results_as_dataframe(task_ids=task_ids,
+                                             flow_id=flow_id,
+                                             num_configs=num_configs_perfold,
+                                             num_folds=num_folds,
+                                             measures=measures_perfold,
+                                             config_space=cs)
+
+    def test_get_tasks_qualities_as_dataframe(self):
+        task_ids = [3, 6, 20]
+        self.wrap_tasks_qualities_as_dataframe(task_ids, -9999, False)
+        self.wrap_tasks_qualities_as_dataframe(task_ids, -9999, True)

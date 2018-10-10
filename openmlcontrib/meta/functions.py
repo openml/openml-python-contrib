@@ -378,6 +378,44 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
     return setup_data_all
 
 
+def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
+                                     impute_nan_value: float,
+                                     drop_missing: bool) -> pd.DataFrame:
+    """
+    Obtains all meta-features from a given set of tasks. Meta-features that are
+    calculated but not applicable for a given task (e.g., MutualInformation for
+    numeric-only datasets) can be imputed, meta-features that are not calculated
+    on all datasets can be dropped.
+
+    Parameters
+    ----------
+    task_ids: List[int]
+        The task ids
+
+    impute_nan_value: float
+        The value to impute non-applicable meta-features with
+
+    drop_missing: bool
+        Whether to drop all meta-features that are not calculated on all tasks
+
+    Returns
+    -------
+    result: pd.DataFrame
+        Dataframe with for each task a row and per meta-feature a column
+    """
+    task_qualities = {}
+    for task_id in task_ids:
+        task = openml.tasks.get_task(task_id)
+        qualities = task.get_dataset().qualities
+        qualities = {k: impute_nan_value if np.isnan(v) else v for k, v in qualities.items()}
+        task_qualities[task_id] = qualities
+    # index of qualities: the task id
+    qualities = pd.DataFrame.from_dict(task_qualities, orient='index', dtype=np.float)
+    if drop_missing:
+        qualities = pd.DataFrame.dropna(qualities, axis=1, how='any')
+    return qualities
+
+
 def dataframe_to_arff(dataframe, relation, description):
     attributes = []
     for idx, column_name in enumerate(dataframe.columns.values):
