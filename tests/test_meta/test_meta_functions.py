@@ -38,10 +38,10 @@ class TestMetaFunctions(TestBase):
             return True
         return False
 
-    def wrap_tasks_qualities_as_dataframe(self, task_ids, impute_nan_values, drop_nan):
-        df = openmlcontrib.meta.get_tasks_qualities_as_dataframe(task_ids, impute_nan_values, drop_nan)
+    def wrap_tasks_qualities_as_dataframe(self, task_ids, drop_nan, expected_tasks_with_nas):
+        df_plain = openmlcontrib.meta.get_tasks_qualities_as_dataframe(task_ids, False, -99999, drop_nan)
 
-        self.assertEqual(df.shape[0], len(task_ids))
+        self.assertEqual(df_plain.shape[0], len(task_ids))
 
         # make sure that columns without values are properly imputed
         # some tasks only contains categorical features, hence it misses features
@@ -55,12 +55,29 @@ class TestMetaFunctions(TestBase):
 
         missing = set()
         for mf in check_meta_features:
-            if mf not in df.columns.values:
+            if mf not in df_plain.columns.values:
                 missing.add(mf)
         self.assertSetEqual(set(), missing)
 
         if drop_nan:
-            self.assertFalse(df.isnull().values.any())
+            self.assertFalse(df_plain.isnull().values.any())
+
+        # also get normalized frame
+        df_norm = openmlcontrib.meta.get_tasks_qualities_as_dataframe(task_ids, True, 0.5, drop_nan)
+        self.assertSetEqual(set(df_plain.columns.values), set(df_norm.columns.values))
+
+        for column in df_norm.columns.values:
+            # note that imputation value = 0.5
+            self.assertAlmostEqual(min(df_norm[column]), 0.0)
+            self.assertAlmostEqual(max(df_norm[column]), 1.0)
+        df_norm = openmlcontrib.meta.get_tasks_qualities_as_dataframe(task_ids, True, -1, drop_nan)
+        for task_id in df_norm.T.columns.values:
+            # note that imputation value is out of the range [0, 1]
+            nan_qualities = df_norm.T[task_id].value_counts()
+            if task_id in expected_tasks_with_nas:
+                self.assertGreater(nan_qualities[-1], 0)
+            else:
+                self.assertNotIn(-1, nan_qualities)
 
     def wrap_tasks_results_as_dataframe(self, task_ids, flow_id, num_configs, num_folds, measures, config_space):
         if num_folds is None:
@@ -233,6 +250,7 @@ class TestMetaFunctions(TestBase):
                                              config_space=cs)
 
     def test_get_tasks_qualities_as_dataframe(self):
-        task_ids = [3, 6, 20]
-        self.wrap_tasks_qualities_as_dataframe(task_ids, -9999, False)
-        self.wrap_tasks_qualities_as_dataframe(task_ids, -9999, True)
+        task_ids = [2, 3, 6]
+        expected_tasks_with_nas = [3, 6]
+        self.wrap_tasks_qualities_as_dataframe(task_ids, False, expected_tasks_with_nas)
+        self.wrap_tasks_qualities_as_dataframe(task_ids, True, expected_tasks_with_nas)

@@ -42,13 +42,19 @@ def _merge_setup_dict_and_evaluation_dicts(
         if setup.flow_id != flow.flow_id:
             # this should never happen
             raise ValueError('Setup and flow do not align.')
-        setup_dict = openmlcontrib.setups.setup_to_parameter_dict(setup=setup,
-                                                                  flow=flow,
-                                                                  map_library_names=True,
-                                                                  configuration_space=configuration_space)
-        for measure in evaluations:
-            setup_dict[measure] = setup_evaluations[measure][setup.setup_id].value
-        result[setup.setup_id] = setup_dict
+        try:
+            setup_dict = openmlcontrib.setups.setup_to_parameter_dict(setup=setup,
+                                                                      flow=flow,
+                                                                      map_library_names=True,
+                                                                      configuration_space=configuration_space)
+            for measure in evaluations:
+                setup_dict[measure] = setup_evaluations[measure][setup.setup_id].value
+            result[setup.setup_id] = setup_dict
+        except ValueError as e:
+            if e.__str__().startswith('Trying to set illegal value'):
+                logging.warning('Setup does not comply to configuration space: %s ' % setup.setup_id)
+            else:
+                raise e
     return result
 
 
@@ -379,6 +385,7 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
 
 
 def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
+                                     normalize: bool,
                                      impute_nan_value: float,
                                      drop_missing: bool) -> pd.DataFrame:
     """
@@ -392,6 +399,9 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
     task_ids: List[int]
         The task ids
 
+    normalize: bool
+        Whether to normalize all entrees per column to the interval [0, 1]
+
     impute_nan_value: float
         The value to impute non-applicable meta-features with
 
@@ -403,17 +413,35 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
     result: pd.DataFrame
         Dataframe with for each task a row and per meta-feature a column
     """
-    task_qualities = {}
+    def scale(val, min_val, max_val):
+        return (val - min_val) / (max_val - min_val)
+
+    task_qualities = dict()
+    task_nanqualities = dict()
     for task_id in task_ids:
         task = openml.tasks.get_task(task_id)
         qualities = task.get_dataset().qualities
-        qualities = {k: impute_nan_value if np.isnan(v) else v for k, v in qualities.items()}
-        task_qualities[task_id] = qualities
+        # nanqualities are qualities that are calculated, but not-applicable
+        task_nanqualities[task_id] = {k for k, v in qualities.items() if np.isnan(v)}
+        task_qualities[task_id] = dict(qualities.items())
     # index of qualities: the task id
-    qualities = pd.DataFrame.from_dict(task_qualities, orient='index', dtype=np.float)
+    qualities_frame = pd.DataFrame.from_dict(task_qualities, orient='index', dtype=np.float)
+    if normalize:
+        for quality in qualities_frame.columns.values:
+            min_val = min(qualities_frame[quality])
+            max_val = max(qualities_frame[quality])
+            if min_val == max_val:
+                logging.warning('Quality can not be normalized, as it is constant: %s' % quality)
+                continue
+            qualities_frame[quality] = qualities_frame[quality].apply(lambda x: scale(x, min_val, max_val))
+    # now qualities are all in the range [0, 1], set, reset the values of qualities
+    for task_id in task_ids:
+        for quality in task_nanqualities[task_id]:
+            qualities_frame.at[task_id, quality] = impute_nan_value
+
     if drop_missing:
-        qualities = pd.DataFrame.dropna(qualities, axis=1, how='any')
-    return qualities
+        qualities_frame = pd.DataFrame.dropna(qualities_frame, axis=1, how='any')
+    return qualities_frame
 
 
 def dataframe_to_arff(dataframe, relation, description):
