@@ -418,10 +418,11 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
 
     task_qualities = dict()
     task_nanqualities = dict()
+    tasks = openml.tasks.list_tasks(task_id=task_ids, status='all')
     for idx, task_id in enumerate(task_ids):
         logging.info('Obtaining qualities for task %d (%d/%d)' % (task_id, idx + 1, len(task_ids)))
-        task = openml.tasks.get_task(task_id)
-        qualities = task.get_dataset().qualities
+        dataset = openml.datasets.get_dataset(tasks[task_id]['did'])
+        qualities = dataset.qualities
         # nanqualities are qualities that are calculated, but not-applicable
         task_nanqualities[task_id] = {k for k, v in qualities.items() if np.isnan(v)}
         task_qualities[task_id] = dict(qualities.items())
