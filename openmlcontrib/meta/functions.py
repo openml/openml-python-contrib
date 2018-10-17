@@ -503,5 +503,5 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
         for idx, (col_name, _) in enumerate(liac_arff_dict['attributes'])
     }
 
-    result = pd.DataFrame(arff_dict)
+    result = pd.DataFrame(arff_dict, dtype=object)
     return result
