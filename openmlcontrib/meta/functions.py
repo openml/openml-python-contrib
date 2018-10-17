@@ -480,10 +480,7 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
     if liac_arff_dict.keys() != expected_keys:
         raise ValueError('liacarff object does not contain correct keys.')
     data_ = np.array(liac_arff_dict['data'])
-
-    for idx, (col_name, col_type) in enumerate(liac_arff_dict['attributes']):
-        print(idx, (col_name, col_type), type(col_name))
-
+    
     column_dtypes = {
         # str(col_type).lower() important because there are also lists, and uppercase statements
         col_name: np.float64 if str(col_type).lower() in numeric_keywords else np.dtype(object)
