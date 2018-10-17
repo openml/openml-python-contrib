@@ -464,17 +464,44 @@ def dataframe_to_arff(dataframe, relation, description):
     return arff_dict
 
 
-def arff_to_dataframe(liacarff):
-    num_keys = {'numeric', 'real'}
+def arff_to_dataframe(liac_arff_dict: typing.Dict,
+                      config_space: typing.Optional[ConfigSpace.ConfigurationSpace]=None):
+    """
+    Transforms a file, as loaded by liac arff, to a pandas data frame.
+    In case a config space object is provided, it is assumed that all
+    hyperparameters in the config space object are also present in the arff
+    dict. Those columns will be casted as their corresponding datatype
+
+    TODO: doc and unit test
+    """
+    numeric_keywords = {'numeric', 'real'}
+
     expected_keys = {'data', 'attributes', 'description', 'relation'}
-    if liacarff.keys() != expected_keys:
+    if liac_arff_dict.keys() != expected_keys:
         raise ValueError('liacarff object does not contain correct keys.')
-    data_ = np.array(liacarff['data'])
-    arff_dict = {
-        col_name: pd.Series(data_[:, idx],
-                            dtype=np.float64
-                            if str(col_type).lower() in num_keys
-                            else np.dtype(object))
-        for idx, (col_name, col_type) in enumerate(liacarff['attributes'])
+    data_ = np.array(liac_arff_dict['data'])
+
+    for idx, (col_name, col_type) in enumerate(liac_arff_dict['attributes']):
+        print(idx, (col_name, col_type), type(col_name))
+
+    column_dtypes = {
+        # str(col_type).lower() important because there are also lists, and uppercase statements
+        col_name: np.float64 if str(col_type).lower() in numeric_keywords else np.dtype(object)
+        for idx, (col_name, col_type) in enumerate(liac_arff_dict['attributes'])
     }
-    return pd.DataFrame(arff_dict)
+
+    if config_space is not None:
+        for hyperparameter in config_space.get_hyperparameters():
+            if hyperparameter.name not in column_dtypes.keys():
+                raise ValueError('ConfigSpace does not align with meta-data. '
+                                 'Missing: %s' % hyperparameter.name)
+            if openmlcontrib.legacy.is_numeric_hyperparameter(hyperparameter):
+                column_dtypes[hyperparameter.name] = np.int64
+    # can break, if integer encoded as string float
+    arff_dict = {
+        col_name: pd.Series(data_[:, idx], dtype=column_dtypes[col_name])
+        for idx, (col_name, _) in enumerate(liac_arff_dict['attributes'])
+    }
+
+    result = pd.DataFrame(arff_dict)
+    return result

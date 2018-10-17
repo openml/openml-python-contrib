@@ -146,8 +146,8 @@ class TestMetaFunctions(TestBase):
                 self.assertLessEqual(df[measure].max(), 1)
             self.assertIn(df[measure].dtype, [np.float64, np.int64])
 
-            unique_vals = getattr(df, measure).unique
-            self.assertGreater(unique_vals, 10)
+            unique_vals = getattr(df, measure).unique()
+            self.assertGreater(len(unique_vals), 10)
 
         # note that we test the to and from dataframe features in this function
         for param in config_space.get_hyperparameters():
