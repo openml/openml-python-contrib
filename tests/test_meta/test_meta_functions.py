@@ -146,6 +146,9 @@ class TestMetaFunctions(TestBase):
                 self.assertLessEqual(df[measure].max(), 1)
             self.assertIn(df[measure].dtype, [np.float64, np.int64])
 
+            unique_vals = getattr(df, measure).unique
+            self.assertGreater(unique_vals, 10)
+
         # note that we test the to and from dataframe features in this function
         for param in config_space.get_hyperparameters():
             # note that arff does not maintain knowledge about integer vs float.
