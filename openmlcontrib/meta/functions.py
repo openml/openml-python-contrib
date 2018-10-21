@@ -34,6 +34,7 @@ def _merge_setup_dict_and_evaluation_dicts(
             # listing or evaluation listing not complete
             additional = set(setup_keys) - set(setups.keys())
             missing = set(setups.keys()) - set(setup_keys)
+            logging.error('Got %d setup records; %d %s records' % (len(setups.keys()), len(setup_keys), measure))
             if additional:
                 logging.error('Setup keys additional for %s (%d): %s' % (measure, len(additional), additional))
             if missing:
