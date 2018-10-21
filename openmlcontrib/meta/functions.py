@@ -32,6 +32,12 @@ def _merge_setup_dict_and_evaluation_dicts(
         if set(setup_keys) != set(setups.keys()):
             # this should also never happen, and hints at either a bug in setup
             # listing or evaluation listing not complete
+            additional = set(setup_keys) - set(setups.keys())
+            missing = set(setups.keys()) - set(setup_keys)
+            if additional:
+                logging.error('Setup keys additional for %s (%d): %s' % (measure, len(additional), additional))
+            if missing:
+                logging.error('Setup keys missing for %s (%d): %s' % (measure, len(missing), missing))
             raise KeyError('Setup keys do not align for measure %s' % measure)
         setup_evaluations[measure] = {eval.setup_id: eval for eval in evaluations[measure].values()}
         if len(setup_evaluations[measure]) != len(evaluations[measure]):
@@ -363,9 +369,13 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
                                                                 evaluation_measures=evaluation_measures,
                                                                 cache_directory=cache_directory)
         except openml.exceptions.OpenMLServerException as e:
+            if raise_few_runs:
+                raise e
             logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
             continue
         except ValueError as e:
+            if raise_few_runs:
+                raise e
             logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
             continue
         setup_data['task_id'] = task_id
