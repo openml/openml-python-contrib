@@ -149,7 +149,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
     if cache_directory is None or not os.path.isfile(setups_cache_path):
         setups = openmlcontrib.setups.obtain_setups_by_ids(setup_ids=list(setup_ids))
 
-        if cache_directory is not None and len(evaluations) == num_runs:
+        if cache_directory is not None and len(setups) == num_runs:
             # important to only store cache if enough runs were obtained
             with open(setups_cache_path, 'wb') as fp:
                 pickle.dump(setups, fp)
