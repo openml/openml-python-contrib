@@ -485,6 +485,15 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
 
     TODO: doc and unit test
     """
+    def post_process(vals: np.array, col_name: str) -> np.array:
+        if config_space is not None:
+            if col_name in config_space.get_hyperparameter_names():
+                if openmlcontrib.legacy.is_boolean_hyperparameter(
+                        config_space.get_hyperparameter(col_name)):
+                    vals[vals == 'False'] = False
+                    vals[vals == 'True'] = True
+        return vals
+
     pd_extension_int = 'Int64'
 
     numeric_keywords = {'numeric', 'real'}
@@ -512,9 +521,9 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
     arff_dict = {
         col_name: pd.Series(np.array(data_[:, idx], dtype=np.float64)
                             if column_dtypes[col_name] == pd_extension_int
-                            else data_[:, idx], dtype=column_dtypes[col_name])
+                            else post_process(data_[:, idx], col_name), dtype=column_dtypes[col_name])
         for idx, (col_name, _) in enumerate(liac_arff_dict['attributes'])
     }
 
-    result = pd.DataFrame(arff_dict, dtype=object)
+    result = pd.DataFrame(arff_dict)
     return result
