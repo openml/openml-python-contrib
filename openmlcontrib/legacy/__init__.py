@@ -1,1 +1,1 @@
-from .functions import is_numeric_hyperparameter
+from .functions import is_integer_hyperparameter, is_boolean_hyperparameter

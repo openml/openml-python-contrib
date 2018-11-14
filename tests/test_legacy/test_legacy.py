@@ -26,3 +26,25 @@ class TestLegacyFunctions(TestBase):
 
             self.assertSetEqual(expected_active_parameters[setup_dict['classifier__kernel']],
                                 set(setup_dict.keys()))
+
+    def test_get_integer_hyperparameter(self):
+        cs = TestBase._get_libsvm_svc_config_space()
+
+        found_integer_params = set()
+        expected_integer_params = {'classifier__max_iter', 'classifier__degree'}
+        for hyperparameter in cs.get_hyperparameters():
+            if openmlcontrib.legacy.is_integer_hyperparameter(hyperparameter):
+                found_integer_params.add(hyperparameter.name)
+
+        self.assertSetEqual(expected_integer_params, found_integer_params)
+
+    def test_get_bool_hyperparameter(self):
+        cs = TestBase._get_libsvm_svc_config_space()
+
+        found_bool_params = set()
+        expected_bool_params = {'classifier__shrinking'}
+        for hyperparameter in cs.get_hyperparameters():
+            if openmlcontrib.legacy.is_boolean_hyperparameter(hyperparameter):
+                found_bool_params.add(hyperparameter.name)
+
+        self.assertSetEqual(expected_bool_params, found_bool_params)
