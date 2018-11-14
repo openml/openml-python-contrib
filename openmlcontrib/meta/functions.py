@@ -485,6 +485,8 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
 
     TODO: doc and unit test
     """
+    pd_extension_int = 'Int64'
+
     numeric_keywords = {'numeric', 'real'}
 
     expected_keys = {'data', 'attributes', 'description', 'relation'}
@@ -504,10 +506,13 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
                 raise ValueError('ConfigSpace does not align with meta-data. '
                                  'Missing: %s' % hyperparameter.name)
             if openmlcontrib.legacy.is_numeric_hyperparameter(hyperparameter):
-                column_dtypes[hyperparameter.name] = np.int64
+                column_dtypes[hyperparameter.name] = pd_extension_int
+
     # can break, if integer encoded as string float
     arff_dict = {
-        col_name: pd.Series(data_[:, idx], dtype=column_dtypes[col_name])
+        col_name: pd.Series(np.array(data_[:, idx], dtype=np.float64)
+                            if column_dtypes[col_name] == pd_extension_int
+                            else data_[:, idx], dtype=column_dtypes[col_name])
         for idx, (col_name, _) in enumerate(liac_arff_dict['attributes'])
     }
 

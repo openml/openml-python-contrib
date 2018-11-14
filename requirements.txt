@@ -2,4 +2,4 @@ ConfigSpace>=0.4.7
 Cython
 matplotlib
 openml
-pandas
+pandas>=0.24.0dev
