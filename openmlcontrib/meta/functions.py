@@ -502,6 +502,7 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
     if liac_arff_dict.keys() != expected_keys:
         raise ValueError('liacarff object does not contain correct keys.')
     data_ = np.array(liac_arff_dict['data'])
+    col_names = [col_name for col_name, col_type in liac_arff_dict['attributes']]
     
     column_dtypes = {
         # str(col_type).lower() important because there are also lists, and uppercase statements
@@ -526,4 +527,6 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
     }
 
     result = pd.DataFrame(arff_dict)
+    # now reset original column order
+    result = result[col_names]
     return result
