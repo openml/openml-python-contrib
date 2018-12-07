@@ -140,7 +140,7 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
     hyperparameter_values = dict()
     for pid, hyperparameter in setup.parameters.items():
         if map_library_names:
-            name = openml.setups.openml_param_name_to_sklearn(hyperparameter, flow)
+            name = openml.flows.openml_param_name_to_sklearn(hyperparameter, flow)
         else:
             name = hyperparameter.fullName
         value = hyperparameter.value
