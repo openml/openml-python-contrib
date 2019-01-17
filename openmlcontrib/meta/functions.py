@@ -483,7 +483,7 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
     hyperparameters in the config space object are also present in the arff
     dict. Those columns will be casted as their corresponding datatype
 
-    TODO: doc and unit test
+    TODO: doc and unit tests
     """
     def post_process(vals: np.array, col_name: str) -> np.array:
         if config_space is not None:

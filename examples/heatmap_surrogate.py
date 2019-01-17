@@ -1,5 +1,6 @@
 import argparse
 import ConfigSpace
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import openml
@@ -16,8 +17,8 @@ def parse_args():
     parser.add_argument('--n_estimators', type=int, default=64)
     parser.add_argument('--num_runs', type=int, default=500)
     parser.add_argument('--evaluation_measure', type=str, default='predictive_accuracy')
-    parser.add_argument('--x_param', type=str, default='C')
-    parser.add_argument('--y_param', type=str, default='gamma')
+    parser.add_argument('--x_param', type=str, default='classifier__C')
+    parser.add_argument('--y_param', type=str, default='classifier__gamma')
     parser.add_argument('--resolution', type=int, default=32)
     parser.add_argument('--n_contour_lines', type=int, default=16)
     parser.add_argument('--output_directory', type=str, default=os.path.expanduser('~') + '/experiments/openml')
@@ -32,9 +33,9 @@ def parse_args():
 def get_flow_and_config_space():
     flow_id = 7707
 
-    kernel = ConfigSpace.Constant(name="kernel", value="rbf")
-    complexity = ConfigSpace.UniformFloatHyperparameter("C", 0.03125, 32768, log=True, default_value=1.0)
-    gamma = ConfigSpace.UniformFloatHyperparameter("gamma", 3.0517578125e-05, 8, log=True, default_value=0.1)
+    kernel = ConfigSpace.Constant(name="classifier__kernel", value="rbf")
+    complexity = ConfigSpace.UniformFloatHyperparameter("classifier__C", 0.03125, 32768, log=True, default_value=1.0)
+    gamma = ConfigSpace.UniformFloatHyperparameter("classifier__gamma", 3.0517578125e-05, 8, log=True, default_value=0.1)
 
     cs = ConfigSpace.ConfigurationSpace()
     cs.add_hyperparameters([complexity, kernel, gamma])
@@ -42,7 +43,9 @@ def get_flow_and_config_space():
     return flow_id, cs
 
 
-def get_param_indices(param, resolution, tol=0.00001):
+def get_param_indices(param: ConfigSpace.hyperparameters.Hyperparameter,
+                      resolution: int,
+                      tol: float=0.00001):
     if param.log:
         space = np.logspace(np.log10(param.lower), np.log10(param.upper), resolution, base=10)
     else:
@@ -58,14 +61,13 @@ def run(args):
     flow_id, configuration_space = get_flow_and_config_space()
     dataset_name = openml.tasks.get_task(args.task_id).get_dataset().name
     df = openmlcontrib.meta.get_task_flow_results_as_dataframe(args.task_id, flow_id, args.num_runs,
-                                                               configuration_space, 'parameter_name',
-                                                               args.evaluation_measure, args.cache_directory)
+                                                               True, configuration_space,
+                                                               [args.evaluation_measure], args.cache_directory)
     estimator = sklearn.pipeline.Pipeline(steps=[
         ('estimator', sklearn.ensemble.RandomForestRegressor(n_estimators=args.n_estimators))
     ])
-
     X = np.concatenate((df[args.x_param].values.reshape(-1, 1), df[args.y_param].values.reshape(-1, 1)), axis=1)
-    y = df['y'].values
+    y = df[args.evaluation_measure].values
     estimator.fit(X, y)
 
     x_param = configuration_space.get_hyperparameter(args.x_param)
@@ -96,13 +98,18 @@ def run(args):
     axes.set_ylabel(args.y_param)
     if args.output_directory:
         os.makedirs(args.output_directory, exist_ok=True)
-        plt.savefig(os.path.join(args.output_directory, 'contourplot-task-%d.png' % args.task_id))
+        output_file = os.path.join(args.output_directory, 'contourplot-task-%d.png' % args.task_id)
+        plt.savefig(output_file)
+        logging.info('Saved plot to %s' % output_file)
     else:
         plt.show()
     plt.close()
 
 
 if __name__ == '__main__':
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    
     args_ = parse_args()
 
     if args_.task_id:

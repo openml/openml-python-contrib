@@ -152,7 +152,6 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
             # when this happens, we need to fix
             raise KeyError('Duplicate hyperparameter: %s' % name)
         hyperparameter_values[name] = json.loads(value)
-
     missing_parameters = set(configuration_space.get_hyperparameter_names()) - hyperparameter_values.keys()
     if len(missing_parameters) > 0:
         raise ValueError('Setup %d does not comply to relevant parameters set. Missing: %s' % (setup.setup_id,

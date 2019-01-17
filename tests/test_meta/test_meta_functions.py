@@ -184,7 +184,7 @@ class TestMetaFunctions(TestBase):
         self.wrap_task_flow_results_as_dataframe(task_id=task_id,
                                                  flow_id=flow_id,
                                                  num_configs=num_configs_global,
-                                                 num_folds=None,  # invoke test on global frame
+                                                 num_folds=None,  # invoke tests on global frame
                                                  measures=measures,
                                                  config_space=cs)
 
@@ -210,7 +210,7 @@ class TestMetaFunctions(TestBase):
         self.wrap_task_flow_results_as_dataframe(task_id=task_id,
                                                  flow_id=flow_id,
                                                  num_configs=num_configs_global,
-                                                 num_folds=None,  # invoke test on global frame
+                                                 num_folds=None,  # invoke tests on global frame
                                                  measures=measures_global,
                                                  config_space=cs)
         self.wrap_task_flow_results_as_dataframe(task_id=task_id,
@@ -242,7 +242,7 @@ class TestMetaFunctions(TestBase):
         self.wrap_tasks_results_as_dataframe(task_ids=task_ids,
                                              flow_id=flow_id,
                                              num_configs=num_configs_global,
-                                             num_folds=None,  # invoke test on global frame
+                                             num_folds=None,  # invoke tests on global frame
                                              measures=measures_global,
                                              config_space=cs)
         self.wrap_tasks_results_as_dataframe(task_ids=task_ids,
