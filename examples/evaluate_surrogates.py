@@ -94,6 +94,7 @@ def run(args):
 
     # some naming declarations
     spearman_name = 'spearmanr_%d' % args.spearman_k
+    classifier_name = os.path.splitext(os.path.basename(args.performances_path))[0]
 
     # data loading and management
     with open(args.performances_path, 'r') as fp:
@@ -171,9 +172,9 @@ def run(args):
     os.makedirs(args.output_directory, exist_ok=True)
     result_frame.to_csv(os.path.join(args.output_directory, 'results.csv'))
 
-    fig, ax = plt.subplots(figsize=(16, 6))
+    fig, ax = plt.subplots(figsize=(8, 6))
     sns.boxplot(x="strategy", y=spearman_name, hue="set", data=result_frame, ax=ax)
-    plt.savefig(os.path.join(args.output_directory, '%s.png' % spearman_name))
+    plt.savefig(os.path.join(args.output_directory, '%s.png' % classifier_name))
 
 
 if __name__ == '__main__':
