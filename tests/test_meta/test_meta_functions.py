@@ -79,48 +79,32 @@ class TestMetaFunctions(TestBase):
             else:
                 self.assertNotIn(-1, nan_qualities)
 
-    def wrap_tasks_results_as_dataframe(self, task_ids, flow_id, num_configs, num_folds, measures, config_space):
-        if num_folds is None:
-            df = openmlcontrib.meta.get_tasks_result_as_dataframe(task_ids, flow_id, num_configs,
-                                                                  per_fold=False,
-                                                                  raise_few_runs=True,
-                                                                  configuration_space=config_space,
-                                                                  evaluation_measures=measures,
-                                                                  cache_directory=None, normalize=False)
+    def wrap_tasks_results_as_dataframe(self, task_ids, flow_id, num_configs, per_fold, measures, config_space):
+        df = openmlcontrib.meta.get_tasks_result_as_dataframe(task_ids, flow_id, num_configs,
+                                                              per_fold=per_fold,
+                                                              raise_few_runs=True,
+                                                              configuration_space=config_space,
+                                                              evaluation_measures=measures,
+                                                              cache_directory=None, normalize=False)
 
-            n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 1  # adds task
-            n_observations = num_configs * len(task_ids)
-        else:
-            df = openmlcontrib.meta.get_tasks_result_as_dataframe(task_ids, flow_id, num_configs,
-                                                                  per_fold=True,
-                                                                  raise_few_runs=True,
-                                                                  configuration_space=config_space,
-                                                                  evaluation_measures=measures,
-                                                                  cache_directory=None, normalize=False)
-            n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 3  # adds repeat, fold, task
-            n_observations = num_configs * num_folds * len(task_ids)
+        n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 1  # adds task
+        n_observations = num_configs * len(task_ids)
 
         self.assertEqual(type(df), pd.DataFrame)
         self.assertEqual(df.shape, (n_observations, n_columns))
 
         # TODO: extend tests
 
-    def wrap_task_flow_results_as_dataframe(self, task_id, flow_id, num_configs, num_folds, measures, config_space):
-        if num_folds is None:
-            df = openmlcontrib.meta.get_task_flow_results_as_dataframe(task_id, flow_id, num_configs,
-                                                                       raise_few_runs=True,
-                                                                       configuration_space=config_space,
-                                                                       evaluation_measures=measures,
-                                                                       cache_directory=None)
+    def wrap_task_flow_results_as_dataframe(self, task_id, flow_id, num_configs, per_fold, measures, config_space):
+        df = openmlcontrib.meta.get_task_flow_results_as_dataframe(task_id, flow_id, num_configs,
+                                                                   raise_few_runs=True,
+                                                                   configuration_space=config_space,
+                                                                   evaluation_measures=measures,
+                                                                   cache_directory=None,
+                                                                   per_fold=per_fold)
 
-            n_columns = len(config_space.get_hyperparameter_names()) + len(measures)
-            n_observations = num_configs
-        else:
-            df = openmlcontrib.meta.get_task_flow_results_per_fold_as_dataframe(
-                task_id, flow_id, num_configs, raise_few_runs=True, configuration_space=config_space,
-                evaluation_measures=measures)
-            n_columns = len(config_space.get_hyperparameter_names()) + len(measures) + 2
-            n_observations = num_configs * num_folds
+        n_columns = len(config_space.get_hyperparameter_names()) + len(measures)
+        n_observations = num_configs
 
         self.assertEqual(type(df), pd.DataFrame)
         self.assertEqual(df.shape, (n_observations, n_columns))
@@ -146,9 +130,6 @@ class TestMetaFunctions(TestBase):
                 self.assertLessEqual(df[measure].max(), 1)
             self.assertIn(df[measure].dtype, [np.float64, np.int64])
 
-            unique_vals = getattr(df, measure).unique()
-            self.assertGreater(len(unique_vals), 10)
-
         # note that we test the to and from dataframe features in this function
         for param in config_space.get_hyperparameters():
             # note that arff does not maintain knowledge about integer vs float.
@@ -156,7 +137,7 @@ class TestMetaFunctions(TestBase):
             if TestMetaFunctions.is_integer_hyperparameter(param):
                 df[param.name] = df[param.name].astype(np.float64)
             elif TestMetaFunctions.is_boolean_hyperparameter(param):
-                df[param.name] = df[param.name].astype(type(object))
+                df[param.name] = df[param.name].astype(object)
         # also fix repeat nr and fold nr, in case of the per fold result
         for rf in ['repeat_nr', 'fold_nr']:
             if rf in df.columns.values:
@@ -168,29 +149,21 @@ class TestMetaFunctions(TestBase):
 
     def test_get_task_flow_results_as_dataframe_svm(self):
         task_id = 59
-        num_folds = 10
         flow_id = 7707
-        num_configs_global = 50
         num_configs_perfold = 10
         cs = TestBase._get_libsvm_svc_config_space()
         measures = ['predictive_accuracy']
 
-        self.wrap_task_flow_results_as_dataframe(task_id=task_id,
-                                                 flow_id=flow_id,
-                                                 num_configs=num_configs_perfold,
-                                                 num_folds=num_folds,
-                                                 measures=measures,
-                                                 config_space=cs)
-        self.wrap_task_flow_results_as_dataframe(task_id=task_id,
-                                                 flow_id=flow_id,
-                                                 num_configs=num_configs_global,
-                                                 num_folds=None,  # invoke tests on global frame
-                                                 measures=measures,
-                                                 config_space=cs)
+        for per_fold in [False, True]:
+            self.wrap_task_flow_results_as_dataframe(task_id=task_id,
+                                                     flow_id=flow_id,
+                                                     num_configs=num_configs_perfold,
+                                                     per_fold=per_fold,
+                                                     measures=measures,
+                                                     config_space=cs)
 
     def test_get_task_flow_results_as_dataframe_rf(self):
         task_id = 3
-        num_folds = 10
         flow_id = 6969
         num_configs_global = 50
         num_configs_perfold = 10
@@ -206,50 +179,42 @@ class TestMetaFunctions(TestBase):
             'usercpu_time_millis_training',
             'usercpu_time_millis_testing'
         ]
-
         self.wrap_task_flow_results_as_dataframe(task_id=task_id,
                                                  flow_id=flow_id,
                                                  num_configs=num_configs_global,
-                                                 num_folds=None,  # invoke tests on global frame
+                                                 per_fold=False,
                                                  measures=measures_global,
                                                  config_space=cs)
         self.wrap_task_flow_results_as_dataframe(task_id=task_id,
                                                  flow_id=flow_id,
                                                  num_configs=num_configs_perfold,
-                                                 num_folds=num_folds,
+                                                 per_fold=True,
                                                  measures=measures_perfold,
                                                  config_space=cs)
 
     def test_get_task_result_as_dataframe(self):
         task_ids = [3, 6, 20]
-        num_folds = 10
         flow_id = 6969
         num_configs_global = 50
         num_configs_perfold = 10
         cs = TestBase._get_random_forest_default_search_space()
-        measures_global = [
+        measures = [
             'predictive_accuracy',
             'f_measure',
             'area_under_roc_curve'
-        ]
-        measures_perfold = [
-            'predictive_accuracy',
-            'usercpu_time_millis',
-            'usercpu_time_millis_training',
-            'usercpu_time_millis_testing'
         ]
 
         self.wrap_tasks_results_as_dataframe(task_ids=task_ids,
                                              flow_id=flow_id,
                                              num_configs=num_configs_global,
-                                             num_folds=None,  # invoke tests on global frame
-                                             measures=measures_global,
+                                             per_fold=True,
+                                             measures=measures,
                                              config_space=cs)
         self.wrap_tasks_results_as_dataframe(task_ids=task_ids,
                                              flow_id=flow_id,
                                              num_configs=num_configs_perfold,
-                                             num_folds=num_folds,
-                                             measures=measures_perfold,
+                                             per_fold=False,
+                                             measures=measures,
                                              config_space=cs)
 
     def test_get_tasks_qualities_as_dataframe(self):

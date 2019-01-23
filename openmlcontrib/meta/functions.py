@@ -15,7 +15,8 @@ def _merge_setup_dict_and_evaluation_dicts(
         setups: typing.Dict[int, openml.setups.OpenMLSetup],
         flow: openml.flows.OpenMLFlow,
         configuration_space: ConfigSpace.ConfigurationSpace,
-        evaluations: typing.Dict[str, typing.Dict[int, openml.evaluations.OpenMLEvaluation]]) \
+        evaluations: typing.Dict[str, typing.Dict[int, openml.evaluations.OpenMLEvaluation]],
+        per_fold: bool) \
         -> typing.Dict[int, typing.Dict]:
     # returns a dict, mapping from setup id to a dict containing all
     # hyperparameters and evaluation measures
@@ -45,6 +46,7 @@ def _merge_setup_dict_and_evaluation_dicts(
             raise KeyError('Lengths of reindexed dict does not comply with old length. ')
 
     result = dict()
+    per_fold_results = None
     for setup in setups.values():
         if setup.flow_id != flow.flow_id:
             # this should never happen
@@ -55,7 +57,16 @@ def _merge_setup_dict_and_evaluation_dicts(
                                                                       map_library_names=True,
                                                                       configuration_space=configuration_space)
             for measure in evaluations:
-                setup_dict[measure] = setup_evaluations[measure][setup.setup_id].value
+                if per_fold:
+                    current = setup_evaluations[measure][setup.setup_id].values
+                    if per_fold_results is None:
+                        per_fold_results = len(current)
+                    elif per_fold_results != len(current):
+                        raise ValueError('Inconsistent number of per_fold evaluations. Expected %d, got %d' %
+                                         (per_fold_results, len(current)))
+                    setup_dict[measure] = sum(current) / len(current)
+                else:
+                    setup_dict[measure] = setup_evaluations[measure][setup.setup_id].value
             result[setup.setup_id] = setup_dict
         except ValueError as e:
             if e.__str__().startswith('Trying to set illegal value'):
@@ -69,6 +80,7 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
                                        num_runs: int, raise_few_runs: bool,
                                        configuration_space: ConfigSpace.ConfigurationSpace,
                                        evaluation_measures: typing.List[str],
+                                       per_fold: bool,
                                        cache_directory: typing.Union[str, None]) -> pd.DataFrame:
     """
     Obtains a number of runs from a given flow on a given task, and returns a
@@ -83,16 +95,20 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
         The flow id
     num_runs: int
         Maximum on the number of runs per task
+    raise_few_runs: bool
+        Raises an error if not enough runs are found according to the
+        `num_runs` argument
     configuration_space: ConfigurationSpace
         Determines valid parameters and ranges. These will be returned as
         column names
     evaluation_measures: List[str]
         A list with the evaluation measure to obtain
+    per_fold: bool
+        Whether to obtain all results per repeat and per fold (slower, but for
+        example run time is not available globally for all runs). Will average
+        over these. TODO: add option to get all unaveraged
     cache_directory: optional, str
         Directory where cache files can be stored to or obtained from
-    raise_few_runs: bool
-        Raises an error if not enough runs are found according to the
-        `num_runs` argument
 
     Returns
     -------
@@ -126,7 +142,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
             evals_current_measure = openml.evaluations.list_evaluations(measure,
                                                                         size=num_runs,
                                                                         task=[task_id],
-                                                                        flow=[flow_id])
+                                                                        flow=[flow_id],
+                                                                        per_fold=per_fold)
             if len(evals_current_measure) < num_runs and raise_few_runs:
                 raise ValueError('Not enough evaluations for measure: %s. '
                                  'Required: %d, Got: %d' % (measure, num_runs,
@@ -177,7 +194,8 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
     setups_merged = _merge_setup_dict_and_evaluation_dicts(setups,
                                                            flows[flow_id],
                                                            configuration_space,
-                                                           evaluations)
+                                                           evaluations,
+                                                           per_fold)
     # adds the applicable setups to the dataframe
     for setup_id, setup_merged in setups_merged.items():
         # the setups dict still contains the setup objects
@@ -211,102 +229,6 @@ def get_task_flow_results_as_dataframe(task_id: int, flow_id: int,
     return df
 
 
-def get_task_flow_results_per_fold_as_dataframe(task_id: int, flow_id: int,
-                                                num_runs: int, raise_few_runs: bool,
-                                                configuration_space: ConfigSpace.ConfigurationSpace,
-                                                evaluation_measures: typing.List[str]) -> pd.DataFrame:
-    """
-    Obtains a number of runs from a given flow on a given task, and returns a
-    (relevant) set of parameters and performance measures. Because the per-fold
-    performance information is not available in the listing functions, it is
-    slower than the `openmlcontrib.meta.get_task_flow_results_as_dataframe`,
-    however it can rely on openml-pythons native cache mechanism.
-
-    Parameters
-    ----------
-    task_id: int
-        The task id
-    flow_id:
-        The flow id
-    num_runs: int
-        Maximum on the number of runs per task
-    configuration_space: ConfigurationSpace
-        Determines valid parameters and ranges. These will be returned as
-        column names
-    evaluation_measures: List[str]
-        A list with the evaluation measure to obtain
-    raise_few_runs: bool
-        Raises an error if not enough runs are found according to the
-        `num_runs` argument
-
-    Returns
-    -------
-    df : pd.DataFrame
-        a dataframe with as columns the union of the config_space
-        hyperparameters and the evaluation measures, and num_runs rows.
-    """
-    for measure in evaluation_measures:
-        if measure in configuration_space.get_hyperparameters():
-            raise ValueError('measure shadows name in hyperparameter list: %s' % measure)
-
-    # book keeping for task parameters (num_repeats and num_folds)
-    task = openml.tasks.get_task(task_id)
-    repeats = int(task.estimation_procedure['parameters']['number_repeats']) \
-        if 'number_repeats' in task.estimation_procedure['parameters'] else 1
-    folds = int(task.estimation_procedure['parameters']['number_folds']) \
-        if 'number_folds' in task.estimation_procedure['parameters'] else 1
-
-    if repeats * folds <= 1:
-        raise ValueError('Can only obtain per fold frame if the task defines '
-                         'multiple repeats or folds. Instead, you are adviced '
-                         'to use get_task_flow_results_as_dataframe().')
-
-    # obtain all runs
-    runs = openml.runs.list_runs(size=num_runs, task=[task_id], flow=[flow_id])
-    if len(runs) < num_runs and raise_few_runs:
-        raise ValueError('Not enough evaluations. Required: %d, '
-                         'Got: %d' % (num_runs, len(runs)))
-    flows = dict()
-    all_records = list()
-    for run_dict in runs.values():
-        setup = openml.setups.get_setup(run_dict['setup_id'])
-        if setup.flow_id not in flows:
-            flows[setup.flow_id] = openml.flows.get_flow(setup.flow_id)
-            if len(flows) != 1:
-                # This should never happen.
-                raise ValueError('Expected exactly one flow. Got %d' % len(flows))
-        if openmlcontrib.setups.setup_in_config_space(setup,
-                                                      flows[setup.flow_id],
-                                                      configuration_space):
-            setup = openmlcontrib.setups.setup_to_parameter_dict(setup=setup,
-                                                                 flow=flows[setup.flow_id],
-                                                                 map_library_names=True,
-                                                                 configuration_space=configuration_space)
-            run = openml.runs.get_run(run_dict['run_id'])
-            if run.fold_evaluations is None or len(run.fold_evaluations) == 0:
-                logging.warning('Skipping run that is not processed yet: %d' % run.run_id)
-                continue
-
-            for repeat_nr in range(repeats):
-                for fold_nr in range(folds):
-                    current_record = dict(setup)
-                    current_record['repeat_nr'] = repeat_nr
-                    current_record['fold_nr'] = fold_nr
-                    for measure in evaluation_measures:
-                        current_record[measure] = run.fold_evaluations[measure][repeat_nr][fold_nr]
-                    all_records.append(current_record)
-        else:
-            logging.warning('Setup does not comply to configuration space: %s ' % setup.setup_id)
-    if len(all_records) == 0:
-        raise ValueError('Did not obtain any results for task %d' % task_id)
-
-    # initiates the dataframe object
-    relevant_parameters = configuration_space.get_hyperparameter_names()
-    all_columns = list(relevant_parameters) + evaluation_measures + ['repeat_nr', 'fold_nr']
-    df = pd.DataFrame(columns=all_columns, data=all_records)
-    return df
-
-
 def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
                                   num_runs: int, per_fold: bool, raise_few_runs: bool,
                                   configuration_space: ConfigSpace.ConfigurationSpace,
@@ -315,9 +237,7 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
                                   cache_directory: typing.Optional[str]) -> pd.DataFrame:
     """
     Obtains a number of runs from a given flow on a set of tasks, and returns a
-    (relevant) set of parameters and performance measures. As backend, it uses
-    either `get_task_flow_results_as_dataframe` (fast, one result per run) or
-    `get_task_flow_results_perfold_as_dataframe` (slow, but results per fold).
+    (relevant) set of parameters and performance measures.
 
     Parameters
     ----------
@@ -328,7 +248,9 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
     num_runs: int
         Maximum on the number of runs per task
     per_fold: bool
-        Whether to obtain all results per repeat and per fold (slower)
+        Whether to obtain all results per repeat and per fold (slower, but for
+        example run time is not available globally for all runs). Will average
+        over these. TODO: add option to get all unaveraged
     raise_few_runs: bool
         Raises an error if not enough runs are found according to the
         `num_runs` argument
@@ -354,21 +276,15 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
     for idx, task_id in enumerate(task_ids):
         logging.info('Currently processing task %d (%d/%d)' % (task_id, idx+1, len(task_ids)))
         try:
-            if per_fold:
-                setup_data = get_task_flow_results_per_fold_as_dataframe(task_id=task_id,
-                                                                         flow_id=flow_id,
-                                                                         num_runs=num_runs,
-                                                                         raise_few_runs=raise_few_runs,
-                                                                         configuration_space=configuration_space,
-                                                                         evaluation_measures=evaluation_measures)
-            else:
-                setup_data = get_task_flow_results_as_dataframe(task_id=task_id,
-                                                                flow_id=flow_id,
-                                                                num_runs=num_runs,
-                                                                raise_few_runs=raise_few_runs,
-                                                                configuration_space=configuration_space,
-                                                                evaluation_measures=evaluation_measures,
-                                                                cache_directory=cache_directory)
+
+            setup_data = get_task_flow_results_as_dataframe(task_id=task_id,
+                                                            flow_id=flow_id,
+                                                            num_runs=num_runs,
+                                                            raise_few_runs=raise_few_runs,
+                                                            configuration_space=configuration_space,
+                                                            evaluation_measures=evaluation_measures,
+                                                            cache_directory=cache_directory,
+                                                            per_fold=per_fold)
         except openml.exceptions.OpenMLServerException as e:
             if raise_few_runs:
                 raise e
