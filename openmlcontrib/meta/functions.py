@@ -69,9 +69,14 @@ def _merge_setup_dict_and_evaluation_dicts(
                     setup_dict[measure] = setup_evaluations[measure][setup.setup_id].value
             result[setup.setup_id] = setup_dict
         except ValueError as e:
-            if e.__str__().startswith('Trying to set illegal value'):
-                logging.warning('Setup does not comply to configuration space: %s ' % setup.setup_id)
-            else:
+            acceptable_errors = ['Trying to set illegal value', 'Active hyperparameter']
+            error_acceptable = False
+            for acceptable_error in acceptable_errors:
+                if e.__str__().startswith(acceptable_error):
+                    error_acceptable = True
+                    logging.warning('Setup does not comply to configuration space: %s ' % setup.setup_id)
+            if not error_acceptable:
+                logging.warning('Problem in setup (ValueError will be raised): %s ' % setup.setup_id)
                 raise e
     return result
 
@@ -288,12 +293,12 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
         except openml.exceptions.OpenMLServerException as e:
             if raise_few_runs:
                 raise e
-            logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
+            logging.warning('OpenMLServerException in Task %d: %s' % (task_id, str(e)))
             continue
         except ValueError as e:
             if raise_few_runs:
                 raise e
-            logging.warning('Problem in Task %d: %s' % (task_id, str(e)))
+            logging.warning('ValueError in Task %d: %s' % (task_id, str(e)))
             continue
         setup_data['task_id'] = task_id
         logging.info('Obtained result frame with dimensions %s' % str(setup_data.shape))
@@ -433,6 +438,8 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
                                  'Missing: %s' % hyperparameter.name)
             if openmlcontrib.legacy.is_integer_hyperparameter(hyperparameter):
                 column_dtypes[hyperparameter.name] = pd_extension_int
+            elif openmlcontrib.legacy.is_boolean_hyperparameter(hyperparameter):
+                column_dtypes[hyperparameter.name] = bool
 
     # can break, if integer encoded as string float
     arff_dict = {
