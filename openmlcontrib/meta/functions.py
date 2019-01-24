@@ -411,8 +411,7 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
             if col_name in config_space.get_hyperparameter_names():
                 if openmlcontrib.legacy.is_boolean_hyperparameter(
                         config_space.get_hyperparameter(col_name)):
-                    vals[vals == 'False'] = False
-                    vals[vals == 'True'] = True
+                    vals = vals == 'True'
         return vals
 
     pd_extension_int = 'Int64'
