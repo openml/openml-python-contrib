@@ -31,7 +31,8 @@ class TestLegacyFunctions(TestBase):
         cs = TestBase._get_libsvm_svc_config_space()
 
         found_integer_params = set()
-        expected_integer_params = {'classifier__max_iter', 'classifier__degree'}
+        expected_integer_params = {key for key, value in
+                                TestBase._libsvm_expected_hyperparameter_types().items() if value == int}
         for hyperparameter in cs.get_hyperparameters():
             if openmlcontrib.legacy.is_integer_hyperparameter(hyperparameter):
                 found_integer_params.add(hyperparameter.name)
@@ -42,9 +43,41 @@ class TestLegacyFunctions(TestBase):
         cs = TestBase._get_libsvm_svc_config_space()
 
         found_bool_params = set()
-        expected_bool_params = {'classifier__shrinking'}
+        expected_bool_params = {key for key, value in
+                                TestBase._libsvm_expected_hyperparameter_types().items() if value == bool}
         for hyperparameter in cs.get_hyperparameters():
             if openmlcontrib.legacy.is_boolean_hyperparameter(hyperparameter):
                 found_bool_params.add(hyperparameter.name)
 
         self.assertSetEqual(expected_bool_params, found_bool_params)
+
+    def test_get_string_hyperparameter(self):
+        cs = TestBase._get_libsvm_svc_config_space()
+
+        found_bool_params = set()
+        expected_str_params = {key for key, value in
+                                TestBase._libsvm_expected_hyperparameter_types().items() if value == str}
+        for hyperparameter in cs.get_hyperparameters():
+            if openmlcontrib.legacy.is_string_hyperparameter(hyperparameter):
+                found_bool_params.add(hyperparameter.name)
+
+        self.assertSetEqual(expected_str_params, found_bool_params)
+
+    def test_get_float_hyperparameter(self):
+        cs = TestBase._get_libsvm_svc_config_space()
+
+        found_bool_params = set()
+        expected_float_params = {key for key, value in
+                                TestBase._libsvm_expected_hyperparameter_types().items() if value == float}
+        for hyperparameter in cs.get_hyperparameters():
+            if openmlcontrib.legacy.is_float_hyperparameter(hyperparameter):
+                found_bool_params.add(hyperparameter.name)
+
+        self.assertSetEqual(expected_float_params, found_bool_params)
+
+    def test_get_hyperparameter_type(self):
+        cs = TestBase._get_libsvm_svc_config_space()
+        results = dict()
+        for hyperparameter in cs.get_hyperparameters():
+            results[hyperparameter.name] = openmlcontrib.legacy.get_hyperparameter_datatype(hyperparameter)
+        self.assertDictEqual(results, TestBase._libsvm_expected_hyperparameter_types())
