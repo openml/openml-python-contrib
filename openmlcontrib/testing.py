@@ -49,6 +49,20 @@ class TestBase(unittest.TestCase):
         return expected_active_parameters
 
     @staticmethod
+    def _libsvm_expected_hyperparameter_types():
+        return {
+            'imputation__strategy': str,
+            'classifier__C': float,
+            'classifier__kernel': str,
+            'classifier__degree': int,
+            'classifier__gamma': float,
+            'classifier__coef0': float,
+            'classifier__shrinking': bool,
+            'classifier__tol': float,
+            'classifier__max_iter': int,
+        }
+
+    @staticmethod
     def _get_random_forest_default_search_space():
         cs = ConfigSpace.ConfigurationSpace()
         imputation = ConfigSpace.CategoricalHyperparameter('imputation__strategy', ['mean', 'median', 'most_frequent'])
