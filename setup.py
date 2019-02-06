@@ -21,7 +21,7 @@ except ImportError:
     sys.exit(1)
 
 
-setuptools.setup(name="openml-contrib",
+setuptools.setup(name="openmlcontrib",
                  author="Jan N. van Rijn",
                  description="Convenience functions for integrating openml package with several other libraries",
                  license="BSD 3-clause",
