@@ -434,7 +434,7 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
         for hyperparameter in config_space.get_hyperparameters():
             if hyperparameter.name not in column_dtypes.keys():
                 raise ValueError('ConfigSpace does not align with meta-data. '
-                                 'Missing: %s' % hyperparameter.name)
+                                 'Missing in arff: %s' % hyperparameter.name)
             if openmlcontrib.legacy.is_integer_hyperparameter(hyperparameter):
                 column_dtypes[hyperparameter.name] = pd_extension_int
             elif openmlcontrib.legacy.is_boolean_hyperparameter(hyperparameter):
@@ -452,3 +452,88 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
     # now reset original column order
     result = result[col_names]
     return result
+
+
+def integer_encode_dataframe(df: pd.DataFrame, 
+                             config_space: ConfigSpace.ConfigurationSpace) -> pd.DataFrame:
+    """
+    Takes a dataframe and encodes all columns whose name aligns with a
+    Constant,  UnparameterzedHyperparameter or CategoricalHyperparameter as 
+    integer.
+    
+    Parameters
+    ----------
+    df: pd.DataFrame
+        the dataframe to encode
+    
+    config_space: ConfigSpace.ConfigurationSpace
+        the configuration space. Each hyperparameter that has a name
+        corresponding with a dataframe column will be encoded appropriately.
+    
+    Returns
+    -------
+    pd.DataFrame
+        a dataframe with (for all hyperparameters) integer encoded variables
+    """
+    for column_name in df.columns.values:
+        if column_name in config_space.get_hyperparameter_names():
+            hyperparameter = config_space.get_hyperparameter(column_name)
+            if isinstance(hyperparameter, ConfigSpace.hyperparameters.NumericalHyperparameter):
+                # numeric hyperparameter, don't do anything
+                pass
+            elif isinstance(hyperparameter, (ConfigSpace.hyperparameters.Constant, 
+                                             ConfigSpace.hyperparameters.UnParametrizedHyperparameter)):
+                # encode as constant value. can be retrieved from config space later            
+                df[column_name] = 0
+                df[column_name] = pd.to_numeric(df[column_name])
+            elif isinstance(hyperparameter, ConfigSpace.hyperparameters.CategoricalHyperparameter):
+                df[column_name] = df[column_name].apply(lambda x: hyperparameter.choices.index(x))
+                df[column_name] = pd.to_numeric(df[column_name])
+            else:
+                raise NotImplementedError('Function not implemented for '
+                                          'Hyperparameter: %s' % type(hyperparameter))             
+    return df
+
+
+def decode_integer_dataframe(df: pd.DataFrame, 
+                             config_space: ConfigSpace.ConfigurationSpace) -> pd.DataFrame:
+    """
+    Takes a dataframe and decodes all columns whose name aligns with a
+    Constant,  UnparameterzedHyperparameter or CategoricalHyperparameter as 
+    back to the original value.
+    
+    Parameters
+    ----------
+    df: pd.DataFrame
+        the dataframe to encode
+    
+    config_space: ConfigSpace.ConfigurationSpace
+        the configuration space. Each hyperparameter that has a name
+        corresponding with a dataframe column will be decoded to the original 
+        value.
+    
+    Returns
+    -------
+    pd.DataFrame
+        a dataframe with (for all hyperparameters) decoded variables
+    """
+    for column_name in df.columns.values:
+        if column_name in config_space.get_hyperparameter_names():
+            hyperparameter = config_space.get_hyperparameter(column_name)
+            if isinstance(hyperparameter, ConfigSpace.hyperparameters.NumericalHyperparameter):
+                # numeric hyperparameter, don't do anything
+                pass
+            elif isinstance(hyperparameter, (ConfigSpace.hyperparameters.Constant, 
+                                             ConfigSpace.hyperparameters.UnParametrizedHyperparameter)):
+                # encode as constant value. can be retrieved from config space later  
+                if df[column_name].dtype != np.int64:
+                    raise ValueError('Expected integer datatype for column: %s. Got: %s' % (column_name, df[column_name].dtype))
+                df[column_name] = hyperparameter.value
+            elif isinstance(hyperparameter, ConfigSpace.hyperparameters.CategoricalHyperparameter):
+                if df[column_name].dtype != np.int64:
+                    raise ValueError('Expected integer datatype for column: %s. Got: %s' % (column_name, df[column_name].dtype))
+                df[column_name] = df[column_name].apply(lambda x: hyperparameter.choices[x])
+            else:
+                raise NotImplementedError('Function not implemented for '
+                                          'Hyperparameter: %s' % type(hyperparameter))
+    return df

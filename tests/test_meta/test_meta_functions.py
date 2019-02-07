@@ -1,3 +1,4 @@
+import arff
 import ConfigSpace
 import numpy as np
 import openml
@@ -222,3 +223,15 @@ class TestMetaFunctions(TestBase):
         expected_tasks_with_nas = [3, 6]
         self.wrap_tasks_qualities_as_dataframe(task_ids, False, expected_tasks_with_nas)
         self.wrap_tasks_qualities_as_dataframe(task_ids, True, expected_tasks_with_nas)
+    
+    def test_integer_encode_dataframe(self):
+        with open('../data/arff/random_forest.arff', 'r') as fp:
+            arff_dataset = arff.load(fp)
+        cs = TestBase._get_random_forest_default_search_space()
+        df_orig = openmlcontrib.meta.arff_to_dataframe(arff_dataset, cs)
+        
+        converted = openmlcontrib.meta.integer_encode_dataframe(df_orig, cs)
+        df_new = openmlcontrib.meta.decode_integer_dataframe(converted, cs)
+        
+        pd.testing.assert_frame_equal(df_orig, df_new)
+        
