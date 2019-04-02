@@ -6,8 +6,8 @@ import typing
 def is_integer_hyperparameter(hyperparameter: ConfigSpace.hyperparameters.Hyperparameter) -> bool:
     """
     Checks whether hyperparameter is one of the following: Integer hyperparameter,
-    Constant Hyperparameter with integer value or Unparameterized Hyperparameter
-    with integer value
+    Constant Hyperparameter with integer value, Unparameterized Hyperparameter
+    with integer value or CategoricalHyperparameter with only integer options.
 
     Parameters
     ----------
@@ -27,6 +27,9 @@ def is_integer_hyperparameter(hyperparameter: ConfigSpace.hyperparameters.Hyperp
         return True
     elif isinstance(hyperparameter, ConfigSpace.hyperparameters.UnParametrizedHyperparameter) \
             and isinstance(hyperparameter.value, int):
+        return True
+    elif isinstance(hyperparameter, ConfigSpace.hyperparameters.CategoricalHyperparameter) \
+            and np.all([isinstance(choice, int) for choice in hyperparameter.choices]):
         return True
     return False
 
@@ -63,8 +66,8 @@ def is_boolean_hyperparameter(hyperparameter: ConfigSpace.hyperparameters.Hyperp
 def is_float_hyperparameter(hyperparameter: ConfigSpace.hyperparameters.Hyperparameter) -> bool:
     """
     Checks whether hyperparameter is one of the following: Float hyperparameter,
-    Constant Hyperparameter with float value or Unparameterized Hyperparameter
-    with float value
+    Constant Hyperparameter with float value, Unparameterized Hyperparameter
+    with float value or CategoricalHyperparameter with only integer options.
 
     Parameters
     ----------
@@ -84,6 +87,9 @@ def is_float_hyperparameter(hyperparameter: ConfigSpace.hyperparameters.Hyperpar
         return True
     elif isinstance(hyperparameter, ConfigSpace.hyperparameters.UnParametrizedHyperparameter) \
             and isinstance(hyperparameter.value, float):
+        return True
+    elif isinstance(hyperparameter, ConfigSpace.hyperparameters.CategoricalHyperparameter) \
+            and np.all([isinstance(choice, float) for choice in hyperparameter.choices]):
         return True
     return False
 
@@ -142,4 +148,4 @@ def get_hyperparameter_datatype(hyperparameter: ConfigSpace.hyperparameters.Hype
         return str
     else:
         raise ValueError('Hyperparameter type not determined yet. Please extend'
-                         'this function. ')
+                         'this function. Hyperparameter: %s' % hyperparameter.name)

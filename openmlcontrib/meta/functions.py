@@ -435,10 +435,10 @@ def arff_to_dataframe(liac_arff_dict: typing.Dict,
             if hyperparameter.name not in column_dtypes.keys():
                 raise ValueError('ConfigSpace does not align with meta-data. '
                                  'Missing in arff: %s' % hyperparameter.name)
-            if openmlcontrib.legacy.is_integer_hyperparameter(hyperparameter):
-                column_dtypes[hyperparameter.name] = pd_extension_int
-            elif openmlcontrib.legacy.is_boolean_hyperparameter(hyperparameter):
+            if openmlcontrib.legacy.is_boolean_hyperparameter(hyperparameter):
                 column_dtypes[hyperparameter.name] = bool
+            elif openmlcontrib.legacy.is_integer_hyperparameter(hyperparameter):
+                column_dtypes[hyperparameter.name] = pd_extension_int
 
     # can break, if integer encoded as string float
     arff_dict = {
