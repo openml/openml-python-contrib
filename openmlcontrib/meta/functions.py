@@ -319,7 +319,8 @@ def get_tasks_result_as_dataframe(task_ids: typing.List[int], flow_id: int,
 def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
                                      normalize: bool,
                                      impute_nan_value: float,
-                                     drop_missing: bool) -> pd.DataFrame:
+                                     drop_missing: bool,
+                                     raise_missing: bool) -> pd.DataFrame:
     """
     Obtains all meta-features from a given set of tasks. Meta-features that are
     calculated but not applicable for a given task (e.g., MutualInformation for
@@ -340,6 +341,9 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
     drop_missing: bool
         Whether to drop all meta-features that are not calculated on all tasks
 
+    raise_missing: bool
+        If set to true, an error is raised when one of the tasks does not have meta-features
+
     Returns
     -------
     result: pd.DataFrame
@@ -353,11 +357,17 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
     tasks = openml.tasks.list_tasks(task_id=task_ids, status='all')
     for idx, task_id in enumerate(task_ids):
         logging.info('Obtaining qualities for task %d (%d/%d)' % (task_id, idx + 1, len(task_ids)))
-        dataset = openml.datasets.get_dataset(tasks[task_id]['did'])
-        qualities = dataset.qualities
-        # nanqualities are qualities that are calculated, but not-applicable
-        task_nanqualities[task_id] = {k for k, v in qualities.items() if np.isnan(v)}
-        task_qualities[task_id] = dict(qualities.items())
+        try:
+            dataset = openml.datasets.get_dataset(tasks[task_id]['did'])
+            qualities = dataset.qualities
+            # nanqualities are qualities that are calculated, but not-applicable
+            task_nanqualities[task_id] = {k for k, v in qualities.items() if np.isnan(v)}
+            task_qualities[task_id] = dict(qualities.items())
+        except openml.exceptions.OpenMLServerException as e:
+            if raise_missing or e.code != 274:
+                raise e
+            else:
+                logging.warning(e.message)
     # index of qualities: the task id
     qualities_frame = pd.DataFrame.from_dict(task_qualities, orient='index', dtype=np.float)
     if normalize:
@@ -369,7 +379,7 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
                 continue
             qualities_frame[quality] = qualities_frame[quality].apply(lambda x: scale(x, min_val, max_val))
     # now qualities are all in the range [0, 1], set, reset the values of qualities
-    for task_id in task_ids:
+    for task_id in qualities_frame.index.values:
         for quality in task_nanqualities[task_id]:
             qualities_frame.at[task_id, quality] = impute_nan_value
 

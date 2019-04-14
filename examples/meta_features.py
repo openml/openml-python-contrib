@@ -1,5 +1,6 @@
 import arff
 import argparse
+import logging
 import openml
 import openmlcontrib
 import os
@@ -8,6 +9,7 @@ import os
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--study_id', type=str, default='OpenML100')
+    parser.add_argument('--raise_missing', action='store_true')
     parser.add_argument('--output_directory', type=str, default=os.path.expanduser('~') + '/experiments/openml')
 
     args_ = parser.parse_args()
@@ -15,9 +17,12 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
     args = parse_args()
     study = openml.study.get_study(args.study_id, 'tasks')
-    df = openmlcontrib.meta.get_tasks_qualities_as_dataframe(study.tasks, True, -1, True)
+    df = openmlcontrib.meta.get_tasks_qualities_as_dataframe(study.tasks, True, -1, True, args.raise_missing)
     df = df.reset_index()
     df = df.rename(columns={'index': 'task_id'})
 
