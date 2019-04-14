@@ -320,7 +320,7 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
                                      normalize: bool,
                                      impute_nan_value: float,
                                      drop_missing: bool,
-                                     raise_missing: bool) -> pd.DataFrame:
+                                     raise_missing_task: bool) -> pd.DataFrame:
     """
     Obtains all meta-features from a given set of tasks. Meta-features that are
     calculated but not applicable for a given task (e.g., MutualInformation for
@@ -341,7 +341,7 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
     drop_missing: bool
         Whether to drop all meta-features that are not calculated on all tasks
 
-    raise_missing: bool
+    raise_missing_task: bool
         If set to true, an error is raised when one of the tasks does not have meta-features
 
     Returns
@@ -364,7 +364,7 @@ def get_tasks_qualities_as_dataframe(task_ids: typing.List[int],
             task_nanqualities[task_id] = {k for k, v in qualities.items() if np.isnan(v)}
             task_qualities[task_id] = dict(qualities.items())
         except openml.exceptions.OpenMLServerException as e:
-            if raise_missing or e.code != 274:
+            if raise_missing_task or e.code != 274:
                 raise e
             else:
                 logging.warning(e.message)
