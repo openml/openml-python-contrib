@@ -3,8 +3,9 @@ import ConfigSpace
 import copy
 import json
 import openml
-import openmlcontrib
 import typing
+
+from openml.extensions.sklearn.extension import SklearnExtension
 
 
 def filter_setup_list(setupid_setup, param_name, min=None, max=None, allowed_values=None):
@@ -140,7 +141,7 @@ def setup_to_parameter_dict(setup: openml.setups.OpenMLSetup,
     hyperparameter_values = dict()
     for pid, hyperparameter in setup.parameters.items():
         if map_library_names:
-            name = openml.flows.openml_param_name_to_sklearn(hyperparameter, flow)
+            name = SklearnExtension()._openml_param_name_to_sklearn(hyperparameter, flow)
         else:
             name = hyperparameter.fullName
         value = hyperparameter.value
